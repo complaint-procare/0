@@ -9,6 +9,7 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+1.env
 
 # Supabase
 supabase/.temp
@@ -21,3 +22,7 @@ supabase/.branches
 # Secrets (never commit Google service-account JSON)
 **/service-account*.json
 gcp-key*.json
+
+# Local secrets checklist (template-only; never commit filled-in version)
+secrets.local.md
+secrets.local.*

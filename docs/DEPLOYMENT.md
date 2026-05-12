@@ -27,7 +27,7 @@
 supabase login
 supabase link --project-ref <ref>
 supabase db push       # застосовує міграції з supabase/migrations/
-supabase db seed       # виконує supabase/seed.sql (опційно)
+supabase db query --linked --file supabase/seed.sql  # виконує supabase/seed.sql (опційно)
 ```
 
 В CI це робить `.github/workflows/supabase-migrate.yml` при змінах у `supabase/`.

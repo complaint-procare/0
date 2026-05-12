@@ -18,13 +18,6 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_ROLE  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const SA_EMAIL      = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_EMAIL")!;
-const SA_KEY_PEM    = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY")!
-                        .replace(/\\n/g, "\n");
-const ROOT_FOLDER   = Deno.env.get("GOOGLE_DRIVE_ROOT_FOLDER_ID")!;
-
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -37,6 +30,16 @@ Deno.serve(async (req) => {
 
   const authHeader = req.headers.get("authorization") ?? "";
   if (!authHeader.startsWith("Bearer ")) return json({ error: "unauthorized" }, 401);
+
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+  const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const ROOT_FOLDER = Deno.env.get("GOOGLE_DRIVE_ROOT_FOLDER_ID");
+  if (!SUPABASE_URL || !SERVICE_ROLE) {
+    return json({ error: "supabase function secrets are not configured" }, 500);
+  }
+  if (!ROOT_FOLDER) {
+    return json({ error: "GOOGLE_DRIVE_ROOT_FOLDER_ID is not configured" }, 500);
+  }
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
     global: { headers: { Authorization: authHeader } },
@@ -111,6 +114,12 @@ function json(body: unknown, status = 200) {
 }
 
 async function getGoogleAccessToken(): Promise<string> {
+  const SA_EMAIL = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_EMAIL");
+  const SA_KEY = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY");
+  if (!SA_EMAIL || !SA_KEY) {
+    throw new Error("Google service account secrets are not configured");
+  }
+  const SA_KEY_PEM = SA_KEY.replace(/\\n/g, "\n");
   const now    = Math.floor(Date.now() / 1000);
   const header = { alg: "RS256", typ: "JWT" };
   const claim  = {
