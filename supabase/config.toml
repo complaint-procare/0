@@ -1,0 +1,43 @@
+# Supabase local-dev config. Apply with: `supabase db push`
+# Docs: https://supabase.com/docs/guides/cli/config
+
+project_id = "complaint-procare-0"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage"]
+extra_search_path = ["public"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+[storage]
+enabled = true
+file_size_limit = "100MiB"
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+additional_redirect_urls = [
+  "http://localhost:5173",
+  "https://complaint-procare.github.io"
+]
+jwt_expiry = 3600
+enable_signup = false       # admin-managed users only
+enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_signup = false
+enable_confirmations = false
+
+[edge_runtime]
+enabled = true
+policy = "oneshot"

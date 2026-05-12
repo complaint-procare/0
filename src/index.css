@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(0 0% 80%) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: hsl(0 0% 82%);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(0 0% 70%);
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-150 disabled:pointer-events-none disabled:opacity-40;
+  }
+  .btn-primary {
+    background-color: hsl(0 0% 8%);
+    color: hsl(0 0% 100%);
+  }
+  .btn-primary:not(:disabled):hover {
+    background-color: hsl(0 0% 16%);
+  }
+  .btn-primary:not(:disabled):active {
+    transform: scale(0.98);
+  }
+  .btn-outline {
+    border: 1px solid hsl(30 8% 88%);
+    background-color: hsl(0 0% 100%);
+    color: hsl(0 0% 10%);
+  }
+  .btn-outline:not(:disabled):hover {
+    background-color: hsl(40 10% 97%);
+  }
+  .btn-outline:not(:disabled):active {
+    transform: scale(0.98);
+  }
+  .btn-ghost {
+    color: hsl(0 0% 35%);
+    background-color: transparent;
+  }
+  .btn-ghost:not(:disabled):hover {
+    background-color: hsl(40 10% 93%);
+    color: hsl(0 0% 10%);
+  }
+  .btn-destructive {
+    background-color: hsl(355 70% 55%);
+    color: hsl(0 0% 100%);
+  }
+  .btn-destructive:not(:disabled):hover {
+    filter: brightness(0.95);
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+  .input {
+    @apply flex h-9 w-full rounded-lg px-3 py-1 text-sm transition-colors
+      focus-visible:outline-none focus-visible:ring-2
+      disabled:cursor-not-allowed disabled:opacity-40;
+    border: 1px solid hsl(30 8% 88%);
+    background-color: hsl(0 0% 100%);
+    color: hsl(0 0% 10%);
+    --tw-ring-color: hsl(0 0% 60% / 0.25);
+  }
+  .input::placeholder {
+    color: hsl(0 0% 60%);
+  }
+  .input:focus-visible {
+    border-color: hsl(0 0% 35%);
+    outline: none;
+    box-shadow: 0 0 0 3px hsl(0 0% 0% / 0.06);
+  }
+  .label {
+    @apply text-xs font-medium uppercase tracking-wide;
+    color: hsl(0 0% 45%);
+  }
+  .card {
+    @apply rounded-2xl;
+    border: 1px solid hsl(30 8% 92%);
+    background-color: hsl(0 0% 100%);
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.03);
+  }
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+  .pill-good {
+    background-color: hsl(150 55% 92%);
+    color: hsl(150 55% 26%);
+  }
+  .pill-warn {
+    background-color: hsl(40 95% 90%);
+    color: hsl(30 70% 32%);
+  }
+  .pill-bad {
+    background-color: hsl(8 75% 94%);
+    color: hsl(8 65% 42%);
+  }
+  .pill-neutral {
+    background-color: hsl(40 10% 93%);
+    color: hsl(0 0% 30%);
+  }
+}

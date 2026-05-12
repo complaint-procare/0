@@ -1,0 +1,23 @@
+node_modules
+dist
+dist-ssr
+*.local
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+*.log
+.env
+.env.local
+.env.*.local
+
+# Supabase
+supabase/.temp
+supabase/.branches
+.supabase
+
+# Build info
+*.tsbuildinfo
+
+# Secrets (never commit Google service-account JSON)
+**/service-account*.json
+gcp-key*.json
