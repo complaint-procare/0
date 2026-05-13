@@ -16,10 +16,14 @@ const queryClient = new QueryClient({
   },
 })
 
+const routerBaseName = import.meta.env.BASE_URL.startsWith('/')
+  ? import.meta.env.BASE_URL.replace(/\/$/, '')
+  : undefined
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <BrowserRouter basename={routerBaseName}>
         <AuthProvider>
           <ToastProvider>
             <App />
