@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { Filter, Paperclip, Plus, Search, Trash2, X } from 'lucide-react'
-import { list, remove } from '@/lib/db'
-import { Button, Card, EmptyState, Input, Select } from '@/components/ui/primitives'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { ArrowLeft, ArrowRight, Columns3, Filter, Paperclip, Plus, Search, Trash2, X } from 'lucide-react'
+import { list, remove, update } from '@/lib/db'
+import { Button, Card, EmptyState, Input, Select, Toggle } from '@/components/ui/primitives'
 import { formatDate, formatPhone, padComplaintNumber } from '@/lib/utils'
 import type { Complaint, ComplaintAttachment, ComplaintStatus, FieldDefinition, SeverityLevel } from '@/lib/types'
 import { StatusBadge, SeverityBadge } from '@/components/Badges'
@@ -70,9 +70,11 @@ export function ComplaintsPage() {
   const { session, isAdmin } = useAuth()
   const toast = useToast()
   const nav = useNavigate()
+  const qc = useQueryClient()
   const [filters, setFilters] = useState<Filters>(EMPTY)
   const [statusModal, setStatusModal] = useState<Complaint | null>(null)
   const [deleteModal, setDeleteModal] = useState<Complaint | null>(null)
+  const [columnsOpen, setColumnsOpen] = useState(false)
 
   const { data, refetch, isLoading } = useQuery({
     queryKey: ['complaints-page'],
@@ -173,9 +175,16 @@ export function ComplaintsPage() {
             Всього: {data?.complaints.length ?? 0}, показано: {filtered.length}
           </p>
         </div>
-        <Button onClick={() => nav('/complaints/new')}>
-          <Plus className="h-4 w-4" /> Нова скарга
-        </Button>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Button variant="outline" onClick={() => setColumnsOpen(true)}>
+              <Columns3 className="h-4 w-4" /> Колонки
+            </Button>
+          )}
+          <Button onClick={() => nav('/complaints/new')}>
+            <Plus className="h-4 w-4" /> Нова скарга
+          </Button>
+        </div>
       </div>
 
       <Card className="space-y-3">
@@ -335,6 +344,18 @@ export function ComplaintsPage() {
           toast.show('Статус оновлено', 'success')
         }}
         actorId={session?.user_id ?? ''}
+      />
+      <ColumnsDialog
+        open={columnsOpen}
+        onClose={() => setColumnsOpen(false)}
+        fields={data?.fields ?? []}
+        entities={data?.entities ?? []}
+        onSaved={async () => {
+          await qc.invalidateQueries({ queryKey: ['complaints-page'] })
+          await qc.invalidateQueries({ queryKey: ['field_definitions'] })
+          await refetch()
+          toast.show('Колонки оновлено', 'success')
+        }}
       />
       <ConfirmDialog
         open={!!deleteModal}
@@ -658,4 +679,165 @@ function StatusChangeDialog({
       )}
     </Dialog>
   )
+}
+
+
+function ColumnsDialog({
+  open,
+  onClose,
+  fields,
+  entities,
+  onSaved,
+}: {
+  open: boolean
+  onClose: () => void
+  fields: FieldDefinition[]
+  entities: { id: string; entity_key: string }[]
+  onSaved: () => void | Promise<void>
+}) {
+  const toast = useToast()
+  const complaintEntity = entities.find((e) => e.entity_key === 'complaints')
+  const initial = useMemo<RegistryColumn[]>(() => {
+    if (!complaintEntity) return []
+    return fields
+      .filter((f) => f.entity_id === complaintEntity.id && f.is_active && !f.deleted_at)
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((f) => ({
+        id: f.id,
+        label: f.label,
+        field_key: f.field_key,
+        show_in_registry: f.show_in_registry,
+      }))
+  }, [complaintEntity, fields])
+
+  const [items, setItems] = useState<RegistryColumn[]>(initial)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (open) setItems(initial)
+  }, [open, initial])
+
+  const move = (idx: number, dir: -1 | 1) => {
+    setItems((prev) => {
+      const next = [...prev]
+      const j = idx + dir
+      if (j < 0 || j >= next.length) return prev
+      ;[next[idx], next[j]] = [next[j], next[idx]]
+      return next
+    })
+  }
+
+  const toggleVisible = (idx: number) => {
+    setItems((prev) =>
+      prev.map((it, i) => (i === idx ? { ...it, show_in_registry: !it.show_in_registry } : it)),
+    )
+  }
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      const now = new Date().toISOString()
+      // Compare against initial to update only changed rows.
+      const initialMap = new Map(initial.map((it) => [it.id, it]))
+      await Promise.all(
+        items.map((it, idx) => {
+          const before = initialMap.get(it.id)
+          const newOrder = (idx + 1) * 10
+          const orderChanged = !before || before_orderOf(before, initial) !== newOrder
+          const visChanged = !before || before.show_in_registry !== it.show_in_registry
+          if (!orderChanged && !visChanged) return null
+          return update('field_definitions', it.id, {
+            sort_order: newOrder,
+            show_in_registry: it.show_in_registry,
+            updated_at: now,
+          })
+        }),
+      )
+      await onSaved()
+      onClose()
+    } catch (e) {
+      toast.show((e as Error).message, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Колонки реєстру"
+      description="Стрілки змінюють порядок зліва направо. Перемикач — показати у таблиці."
+      size="lg"
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose} disabled={saving}>
+            Скасувати
+          </Button>
+          <Button onClick={save} disabled={saving}>
+            {saving ? 'Збереження…' : 'Зберегти'}
+          </Button>
+        </>
+      }
+    >
+      <ul className="space-y-1.5">
+        {items.map((it, idx) => (
+          <li
+            key={it.id}
+            className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-2"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="w-6 text-right text-xs text-muted-foreground">{idx + 1}.</span>
+              <Toggle
+                checked={it.show_in_registry}
+                onChange={() => toggleVisible(idx)}
+                aria-label="Показувати в реєстрі"
+              />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{it.label}</p>
+                <p className="truncate font-mono text-xs text-muted-foreground">{it.field_key}</p>
+              </div>
+            </div>
+            <div className="flex gap-1">
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={idx === 0}
+                onClick={() => move(idx, -1)}
+                aria-label="Лівіше"
+                title="Лівіше"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={idx === items.length - 1}
+                onClick={() => move(idx, 1)}
+                aria-label="Правіше"
+                title="Правіше"
+              >
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </li>
+        ))}
+        {items.length === 0 && (
+          <p className="text-sm text-muted-foreground">Полів немає.</p>
+        )}
+      </ul>
+    </Dialog>
+  )
+}
+
+interface RegistryColumn {
+  id: string
+  label: string
+  field_key: string
+  show_in_registry: boolean
+}
+
+function before_orderOf(it: RegistryColumn, initial: RegistryColumn[]): number {
+  const idx = initial.findIndex((x) => x.id === it.id)
+  return idx === -1 ? -1 : (idx + 1) * 10
 }
