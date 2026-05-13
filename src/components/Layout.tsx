@@ -17,7 +17,6 @@ import {
   X,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
-import { supabaseEnabled } from '@/lib/supabase'
 import { ROLE_LABELS } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
@@ -199,17 +198,6 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
           {session && (
             <div className="hidden items-center gap-3 md:flex">
-              <div
-                className={cn(
-                  'rounded-full px-2.5 py-1 text-[11px] font-medium',
-                  supabaseEnabled
-                    ? 'bg-emerald-500/10 text-emerald-700'
-                    : 'bg-amber-500/10 text-amber-700',
-                )}
-                title={supabaseEnabled ? 'Дані читаються з Supabase' : 'Supabase не налаштовано'}
-              >
-                {supabaseEnabled ? 'Supabase' : 'Немає Supabase'}
-              </div>
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground text-xs font-bold text-background">
                 {session.full_name.charAt(0).toUpperCase()}
               </div>

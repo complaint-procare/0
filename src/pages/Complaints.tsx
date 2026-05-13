@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Filter, Paperclip, Plus, Search, X } from 'lucide-react'
-import { list } from '@/lib/db'
+import { Filter, Paperclip, Plus, Search, Trash2, X } from 'lucide-react'
+import { list, remove } from '@/lib/db'
 import { Button, Card, EmptyState, Input, Select } from '@/components/ui/primitives'
 import { formatDate, formatPhone, padComplaintNumber } from '@/lib/utils'
 import type { Complaint, ComplaintAttachment } from '@/lib/types'
 import { StatusBadge, SeverityBadge } from '@/components/Badges'
-import { Dialog } from '@/components/ui/dialog'
+import { ConfirmDialog, Dialog } from '@/components/ui/dialog'
 import { updateComplaint } from '@/lib/complaints'
 import { useAuth } from '@/lib/auth'
 import { useToast } from '@/components/ui/toast'
@@ -37,11 +37,12 @@ const EMPTY: Filters = {
 }
 
 export function ComplaintsPage() {
-  const { session } = useAuth()
+  const { session, isAdmin } = useAuth()
   const toast = useToast()
   const nav = useNavigate()
   const [filters, setFilters] = useState<Filters>(EMPTY)
   const [statusModal, setStatusModal] = useState<Complaint | null>(null)
+  const [deleteModal, setDeleteModal] = useState<Complaint | null>(null)
 
   const { data, refetch, isLoading } = useQuery({
     queryKey: ['complaints-page'],
@@ -103,6 +104,16 @@ export function ComplaintsPage() {
   }
 
   const activeFilterCount = Object.values(filters).filter((v) => v && v.length).length
+
+  const deleteComplaint = async (complaint: Complaint) => {
+    try {
+      await remove('complaints', complaint.id)
+      await refetch()
+      toast.show('Скаргу видалено', 'success')
+    } catch (e) {
+      toast.show((e as Error).message, 'error')
+    }
+  }
 
   return (
     <div className="space-y-4 p-4 md:p-6">
@@ -226,6 +237,18 @@ export function ComplaintsPage() {
                           >
                             Змінити статус
                           </Button>
+                          {isAdmin && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-destructive hover:bg-destructive/10"
+                              onClick={() => setDeleteModal(c)}
+                              aria-label="Видалити скаргу"
+                              title="Видалити скаргу"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -281,6 +304,18 @@ export function ComplaintsPage() {
                   <Button size="sm" variant="ghost" onClick={() => setStatusModal(c)}>
                     Статус
                   </Button>
+                  {isAdmin && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive hover:bg-destructive/10"
+                      onClick={() => setDeleteModal(c)}
+                      aria-label="Видалити скаргу"
+                      title="Видалити скаргу"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                 </div>
               </div>
             </Card>
@@ -297,6 +332,21 @@ export function ComplaintsPage() {
           toast.show('Статус оновлено', 'success')
         }}
         actorId={session?.user_id ?? ''}
+      />
+      <ConfirmDialog
+        open={!!deleteModal}
+        onClose={() => setDeleteModal(null)}
+        onConfirm={() => {
+          if (deleteModal) void deleteComplaint(deleteModal)
+        }}
+        title="Видалити скаргу?"
+        description={
+          deleteModal
+            ? `Скарга #${padComplaintNumber(deleteModal.number)} буде видалена без можливості відновлення.`
+            : undefined
+        }
+        confirmLabel="Видалити"
+        destructive
       />
     </div>
   )
