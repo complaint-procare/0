@@ -554,6 +554,10 @@ function AttachmentTile({
   useEffect(() => {
     let revoke: string | null = null
     ;(async () => {
+      if (att.drive_url?.startsWith('http')) {
+        setUrl(att.drive_url)
+        return
+      }
       const blob = await getAttachmentBlob(att.id)
       if (blob) {
         const u = URL.createObjectURL(blob)
@@ -564,7 +568,7 @@ function AttachmentTile({
     return () => {
       if (revoke) URL.revokeObjectURL(revoke)
     }
-  }, [att.id])
+  }, [att.drive_url, att.id])
 
   const isImage = att.mime_type.startsWith('image/')
   const isVideo = att.mime_type.startsWith('video/')
@@ -594,7 +598,7 @@ function AttachmentTile({
         <p className="text-muted-foreground">{bytesToReadable(att.file_size)}</p>
         <div className="flex items-center justify-between pt-1">
           {url ? (
-            <a href={url} download={att.file_name} className="text-primary hover:underline">
+            <a href={url} download={att.file_name} target="_blank" rel="noreferrer" className="text-primary hover:underline">
               <Download className="inline h-3 w-3" /> Завантажити
             </a>
           ) : (

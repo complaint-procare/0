@@ -1,6 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import { hashPin } from './utils'
 import { getSetting, insert, list, remove, update, upsertSetting } from './db'
+import { supabaseEnabled } from './supabase'
 import type {
   Brand,
   Client,
@@ -19,6 +20,8 @@ const MIGRATION_SOURCE_KEY = '__migration__source_type__'
 const MIGRATION_SEVERITY_COLORS_KEY = '__migration__severity_colors_dark__'
 
 export async function ensureSeed() {
+  if (supabaseEnabled) return
+
   const flag = await getSetting(SEED_FLAG_KEY)
   if (flag) {
     await migrateProductToText()

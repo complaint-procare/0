@@ -1,7 +1,7 @@
 // Supabase Edge Function: upload-attachment
 // -----------------------------------------------------------------------------
-// 1. Accepts a multipart upload from the SPA (authenticated user).
-// 2. Verifies the caller is staff via public.current_app_user().
+// 1. Accepts a multipart upload from the SPA after app-level PIN sign-in.
+// 2. Verifies the supplied public.users id is an active staff user.
 // 3. Uploads the file to Google Drive under a per-complaint subfolder.
 // 4. Records the resulting drive_file_id / drive_url in complaint_attachments.
 //
@@ -13,7 +13,7 @@
 //   GOOGLE_DRIVE_ROOT_FOLDER_ID        ID of the shared Drive folder
 //
 // Deploy: `supabase functions deploy upload-attachment --no-verify-jwt`
-// (we re-verify the JWT manually so we can read the user record.)
+// (JWT verification is disabled because the app uses PIN auth, not Supabase Auth.)
 // -----------------------------------------------------------------------------
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
@@ -28,9 +28,6 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST")    return json({ error: "method not allowed" }, 405);
 
-  const authHeader = req.headers.get("authorization") ?? "";
-  if (!authHeader.startsWith("Bearer ")) return json({ error: "unauthorized" }, 401);
-
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
   const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const ROOT_FOLDER = Deno.env.get("GOOGLE_DRIVE_ROOT_FOLDER_ID");
@@ -41,26 +38,25 @@ Deno.serve(async (req) => {
     return json({ error: "GOOGLE_DRIVE_ROOT_FOLDER_ID is not configured" }, 500);
   }
 
-  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
-    global: { headers: { Authorization: authHeader } },
-  });
+  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE);
 
-  // Identify the caller via their JWT and the public.users row.
-  const { data: userInfo, error: userErr } = await supabase.auth.getUser();
-  if (userErr || !userInfo?.user) return json({ error: "unauthorized" }, 401);
+  const form = await req.formData();
+  const complaintId = String(form.get("complaint_id") ?? "");
+  const uploadedBy = String(form.get("uploaded_by") ?? "");
+  const file = form.get("file");
+  if (!complaintId || !uploadedBy || !(file instanceof File)) {
+    return json({ error: "complaint_id, uploaded_by and file are required" }, 400);
+  }
 
   const { data: appUser, error: appUserErr } = await supabase
     .from("users")
     .select("id, role")
-    .eq("auth_id", userInfo.user.id)
+    .eq("id", uploadedBy)
+    .eq("is_active", true)
     .single();
   if (appUserErr || !appUser) return json({ error: "no app user" }, 403);
-
-  const form = await req.formData();
-  const complaintId = String(form.get("complaint_id") ?? "");
-  const file = form.get("file");
-  if (!complaintId || !(file instanceof File)) {
-    return json({ error: "complaint_id and file are required" }, 400);
+  if (!["admin", "supervisor", "manager", "product_manager", "qa"].includes(appUser.role)) {
+    return json({ error: "not staff" }, 403);
   }
 
   // Look up (or create) a Drive folder for this complaint.

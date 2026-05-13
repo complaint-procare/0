@@ -82,11 +82,74 @@ async function checkFunction(name) {
 
 async function checkBucket(name) {
   const res = await fetch(`${supabaseUrl}/storage/v1/bucket/${name}`, { headers })
+  const preview = await readText(res)
+  if (!res.ok && res.status === 400 && preview.includes('Bucket not found')) {
+    const dbCheck = await checkPrivateBucketViaManagementApi(name)
+    if (dbCheck.ok) return dbCheck
+  }
   return {
     name,
     ok: res.ok,
     status: res.status,
-    preview: await readText(res),
+    preview,
+  }
+}
+
+async function checkPrivateBucketViaManagementApi(name) {
+  const accessToken = env.SUPABASE_ACCESS_TOKEN
+  if (!accessToken) {
+    return {
+      name,
+      ok: false,
+      status: 'management-api-missing-token',
+      preview: 'private bucket hidden from anon Storage API; SUPABASE_ACCESS_TOKEN not set',
+    }
+  }
+
+  const projectRef = new URL(supabaseUrl).host.replace(/\.supabase\.co$/, '')
+  try {
+    const res = await fetch(
+      `https://api.supabase.com/v1/projects/${projectRef}/database/query/read-only`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          query:
+            'select id, name, public, file_size_limit from storage.buckets where id = $1',
+          parameters: [name],
+        }),
+      },
+    )
+    const bodyText = await readText(res)
+    if (!res.ok) {
+      return {
+        name,
+        ok: false,
+        status: res.status,
+        preview: bodyText,
+      }
+    }
+    const parsed = JSON.parse(bodyText)
+    const rows = Array.isArray(parsed) ? parsed : parsed.rows
+    const bucket = rows?.find((row) => row.id === name)
+    return {
+      name,
+      ok: Boolean(bucket),
+      status: bucket ? 200 : 404,
+      preview: bucket
+        ? `private bucket exists; public=${bucket.public}; file_size_limit=${bucket.file_size_limit}`
+        : 'private bucket not found in storage.buckets',
+    }
+  } catch (error) {
+    return {
+      name,
+      ok: false,
+      status: 'management-api-error',
+      preview: String(error).slice(0, 240),
+    }
   }
 }
 

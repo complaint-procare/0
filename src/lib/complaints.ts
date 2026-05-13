@@ -8,6 +8,7 @@ import {
   saveAttachmentBlob,
   update,
 } from './db'
+import { supabaseEnabled, uploadAttachment } from './supabase'
 import type {
   ChangeLogEventType,
   Complaint,
@@ -51,7 +52,7 @@ export async function createComplaint(input: CreateComplaintInput): Promise<Comp
     problem_description: input.problem_description,
     severity_id: input.severity_id,
     status_id: input.status_id,
-    drive_folder_id: `local/Complaints/${String(number).padStart(4, '0')}`,
+    drive_folder_id: supabaseEnabled ? null : `local/Complaints/${String(number).padStart(4, '0')}`,
     drive_folder_url: null,
     closed_at: null,
     updated_at: now,
@@ -82,6 +83,19 @@ export async function addAttachment(
   file: File,
   actorId: string,
 ): Promise<ComplaintAttachment> {
+  if (supabaseEnabled) {
+    const uploaded = await uploadAttachment(complaintId, file, actorId)
+    await logEvent({
+      complaint_id: complaintId,
+      actor_id: actorId,
+      event_type: 'file_added',
+      field_name: null,
+      old_value: null,
+      new_value: { file_name: uploaded.attachment.file_name, id: uploaded.attachment.id },
+    })
+    return uploaded.attachment
+  }
+
   const id = uuid()
   await saveAttachmentBlob(id, file)
   const att: ComplaintAttachment = {

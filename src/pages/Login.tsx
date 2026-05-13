@@ -132,17 +132,6 @@ export function LoginPage() {
           </button>
         </div>
 
-        {/* Demo pins */}
-        <div className="mt-4 rounded-xl border border-border/50 bg-surface/50 p-4 text-xs">
-          <p className="mb-2 font-semibold text-foreground/80">Демо PIN-коди:</p>
-          <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-muted-foreground">
-            <li><span className="font-mono font-bold text-primary/80">1234</span> — Адміністратор</li>
-            <li><span className="font-mono font-bold text-primary/80">1111</span> — Менеджер</li>
-            <li><span className="font-mono font-bold text-primary/80">2222</span> — Керівник</li>
-            <li><span className="font-mono font-bold text-primary/80">3333</span> — Продакт</li>
-            <li><span className="font-mono font-bold text-primary/80">4444</span> — ВКЯ</li>
-          </ul>
-        </div>
       </div>
     </div>
   )

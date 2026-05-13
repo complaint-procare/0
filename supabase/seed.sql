@@ -63,9 +63,8 @@ insert into public.retail_networks (name, is_active) values
   ('Rozetka', true)
 on conflict (name) do nothing;
 
-insert into public.clients (name, contact_person, phone, is_active) values
-  ('Тестовий клієнт', 'Іван Іванович', '+380501112233', true)
-on conflict do nothing;
+-- Clients are operational records and should be created from the app,
+-- not preloaded as demo data.
 
 -- ============================================================
 -- Entity definitions (system entities)
