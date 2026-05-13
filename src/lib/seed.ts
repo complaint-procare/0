@@ -21,6 +21,7 @@ const MIGRATION_SEVERITY_COLORS_KEY = '__migration__severity_colors_dark__'
 
 export async function ensureSeed() {
   if (supabaseEnabled) return
+  throw new Error('Supabase is required. Local IndexedDB seed is disabled.')
 
   const flag = await getSetting(SEED_FLAG_KEY)
   if (flag) {

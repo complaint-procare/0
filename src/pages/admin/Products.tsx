@@ -19,6 +19,7 @@ export function ProductsPage() {
     <SimpleCrud<Product>
       title="Продукти"
       table="products"
+      requireSupabase
       headerExtra={<ProductsExcelImport />}
       columns={[
         { key: 'name', label: 'Назва' },

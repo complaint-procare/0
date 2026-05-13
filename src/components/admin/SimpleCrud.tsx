@@ -5,6 +5,7 @@ import { Button, Card, EmptyState, Toggle } from '@/components/ui/primitives'
 import { ConfirmDialog, Dialog } from '@/components/ui/dialog'
 import { insert, list, remove, update } from '@/lib/db'
 import type { TableName } from '@/lib/db'
+import { supabaseEnabled } from '@/lib/supabase'
 import { useToast } from '@/components/ui/toast'
 import { v4 as uuid } from 'uuid'
 
@@ -28,6 +29,7 @@ interface SimpleCrudProps<T extends { id: string; is_active?: boolean }> {
   validate?: (row: Partial<T>) => string | null
   beforeDelete?: (row: T) => Promise<string | null>
   headerExtra?: ReactNode
+  requireSupabase?: boolean
 }
 
 export function SimpleCrud<T extends { id: string; is_active?: boolean; name?: string }>(
@@ -43,11 +45,20 @@ export function SimpleCrud<T extends { id: string; is_active?: boolean; name?: s
     validate,
     beforeDelete,
     headerExtra,
+    requireSupabase,
   } = props
   const toast = useToast()
   const qc = useQueryClient()
   const [editing, setEditing] = useState<Partial<T> | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<T | null>(null)
+  const supabaseRequiredButMissing = !!requireSupabase && !supabaseEnabled
+
+  const showSupabaseRequired = () => {
+    toast.show(
+      'Для цієї дії потрібне підключення до Supabase. Перезапустіть або redeploy застосунок з VITE_SUPABASE_URL та VITE_SUPABASE_ANON_KEY.',
+      'error',
+    )
+  }
 
   const { data } = useQuery({
     queryKey: [table],
@@ -58,6 +69,10 @@ export function SimpleCrud<T extends { id: string; is_active?: boolean; name?: s
 
   const save = async () => {
     if (!editing) return
+    if (supabaseRequiredButMissing) {
+      showSupabaseRequired()
+      return
+    }
     const err = validate?.(editing)
     if (err) {
       toast.show(err, 'error')
@@ -87,11 +102,25 @@ export function SimpleCrud<T extends { id: string; is_active?: boolean; name?: s
         </div>
         <div className="flex items-center gap-2">
           {headerExtra}
-          <Button onClick={() => setEditing(defaultRow() as Partial<T>)}>
+          <Button
+            onClick={() => {
+              if (supabaseRequiredButMissing) {
+                showSupabaseRequired()
+                return
+              }
+              setEditing(defaultRow() as Partial<T>)
+            }}
+          >
             <Plus className="h-4 w-4" /> Додати
           </Button>
         </div>
       </div>
+
+      {supabaseRequiredButMissing && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          Товари не будуть записані локально. Потрібно активне підключення до Supabase.
+        </div>
+      )}
 
       {!data ? (
         <p className="text-sm text-muted-foreground">Завантаження…</p>
@@ -128,6 +157,10 @@ export function SimpleCrud<T extends { id: string; is_active?: boolean; name?: s
                             <Toggle
                               checked={!!row.is_active}
                               onChange={async (next) => {
+                                if (supabaseRequiredButMissing) {
+                                  showSupabaseRequired()
+                                  return
+                                }
                                 await update(table, row.id, { is_active: next } as never)
                                 refresh()
                               }}
@@ -147,6 +180,10 @@ export function SimpleCrud<T extends { id: string; is_active?: boolean; name?: s
                           size="sm"
                           variant="ghost"
                           onClick={async () => {
+                            if (supabaseRequiredButMissing) {
+                              showSupabaseRequired()
+                              return
+                            }
                             if (beforeDelete) {
                               const reason = await beforeDelete(row)
                               if (reason) {
@@ -193,6 +230,10 @@ export function SimpleCrud<T extends { id: string; is_active?: boolean; name?: s
         onClose={() => setConfirmDelete(null)}
         onConfirm={async () => {
           if (!confirmDelete) return
+          if (supabaseRequiredButMissing) {
+            showSupabaseRequired()
+            return
+          }
           await remove(table, confirmDelete.id)
           refresh()
           toast.show('Видалено', 'success')

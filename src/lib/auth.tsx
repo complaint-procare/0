@@ -3,6 +3,7 @@ import { getSession, list, setSession } from './db'
 import { hashPin } from './utils'
 import type { AuthSession, Role } from './types'
 import { ensureSeed } from './seed'
+import { migrateLocalIndexedDbToSupabase } from './localMigration'
 
 interface AuthContextValue {
   session: AuthSession | null
@@ -22,11 +23,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true
     ;(async () => {
-      await ensureSeed()
-      const s = await getSession()
-      if (active) {
-        setSessionState(s)
-        setLoading(false)
+      try {
+        await migrateLocalIndexedDbToSupabase()
+        await ensureSeed()
+        const s = await getSession()
+        if (active) setSessionState(s)
+      } catch (error) {
+        console.error(error)
+      } finally {
+        if (active) {
+          setLoading(false)
+        }
       }
     })()
     return () => {

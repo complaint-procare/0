@@ -9,7 +9,8 @@ async function loadXLSX() {
 import { Button } from '@/components/ui/primitives'
 import { Dialog } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/toast'
-import { insert, list } from '@/lib/db'
+import { insert, list, remove, update } from '@/lib/db'
+import { supabaseEnabled } from '@/lib/supabase'
 import type { Brand, Product } from '@/lib/types'
 
 interface ParsedRow {
@@ -30,6 +31,15 @@ function normalizeKey(k: string): string {
   return k.toString().trim().toLowerCase()
 }
 
+function normalizeText(value: string | undefined | null): string {
+  return String(value ?? '').trim().toLowerCase()
+}
+
+function productImportKey(product: Pick<Product, 'brand_id' | 'name' | 'sku'>): string {
+  const sku = normalizeText(product.sku)
+  return sku ? `sku:${sku}` : `name:${product.brand_id ?? ''}:${normalizeText(product.name)}`
+}
+
 function detectColumn(headers: string[], aliases: string[]): number {
   for (const alias of aliases) {
     const idx = headers.findIndex((h) => normalizeKey(h) === alias)
@@ -46,6 +56,7 @@ export function ProductsExcelImport() {
   const [fileName, setFileName] = useState<string>('')
   const [importing, setImporting] = useState(false)
   const [createMissingBrands, setCreateMissingBrands] = useState(true)
+  const [deleteMissingProducts, setDeleteMissingProducts] = useState(false)
 
   const reset = () => {
     setRows([])
@@ -96,13 +107,25 @@ export function ProductsExcelImport() {
   }
 
   const runImport = async () => {
+    if (!supabaseEnabled) {
+      toast.show(
+        'Імпорт товарів має записуватися в Supabase. Перезапустіть або redeploy застосунок з VITE_SUPABASE_URL та VITE_SUPABASE_ANON_KEY.',
+        'error',
+      )
+      return
+    }
     setImporting(true)
     try {
       const now = () => new Date().toISOString()
       const brands = await list('brands')
       const brandByName = new Map(brands.map((b) => [b.name.toLowerCase(), b]))
+      const existingProducts = await list('products')
+      const productByKey = new Map(existingProducts.map((p) => [productImportKey(p), p]))
+      const touchedProductIds = new Set<string>()
       let createdBrands = 0
       let createdProducts = 0
+      let updatedProducts = 0
+      let deletedProducts = 0
       let skipped = 0
 
       for (const r of rows) {
@@ -127,21 +150,51 @@ export function ProductsExcelImport() {
             continue
           }
         }
-        const product: Product = {
-          id: uuid(),
+        const productDraft = {
           brand_id: brandId,
           name: r.name,
           sku: r.sku || undefined,
           is_active: true,
           created_at: now(),
         }
-        await insert('products', product)
-        createdProducts++
+        const key = productImportKey(productDraft)
+
+        const existingProduct = productByKey.get(key)
+        if (existingProduct) {
+          await update('products', existingProduct.id, {
+            brand_id: brandId,
+            name: r.name,
+            sku: r.sku || undefined,
+            is_active: true,
+          })
+          touchedProductIds.add(existingProduct.id)
+          updatedProducts++
+        } else {
+          const product: Product = {
+            ...productDraft,
+            id: uuid(),
+          }
+          await insert('products', product)
+          productByKey.set(key, product)
+          touchedProductIds.add(product.id)
+          createdProducts++
+        }
+      }
+
+      if (deleteMissingProducts) {
+        for (const product of existingProducts) {
+          if (!touchedProductIds.has(product.id)) {
+            await remove('products', product.id)
+            deletedProducts++
+          }
+        }
       }
 
       await qc.invalidateQueries({ queryKey: ['products'] })
       await qc.invalidateQueries({ queryKey: ['brands'] })
-      const parts = [`Імпортовано продуктів: ${createdProducts}`]
+      const parts = [`Нових продуктів: ${createdProducts}`]
+      if (updatedProducts) parts.push(`оновлено: ${updatedProducts}`)
+      if (deletedProducts) parts.push(`видалено: ${deletedProducts}`)
       if (createdBrands) parts.push(`нових брендів: ${createdBrands}`)
       if (skipped) parts.push(`пропущено: ${skipped}`)
       toast.show(parts.join(', '), 'success')
@@ -168,7 +221,19 @@ export function ProductsExcelImport() {
 
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)}>
+      <Button
+        variant="outline"
+        onClick={() => {
+          if (!supabaseEnabled) {
+            toast.show(
+              'Імпорт товарів доступний тільки з активним підключенням до Supabase.',
+              'error',
+            )
+            return
+          }
+          setOpen(true)
+        }}
+      >
         <FileSpreadsheet className="h-4 w-4" /> Імпорт з Excel
       </Button>
       <Dialog
@@ -224,6 +289,15 @@ export function ProductsExcelImport() {
               onChange={(e) => setCreateMissingBrands(e.target.checked)}
             />
             Створювати нові бренди, якщо їх немає у каталозі
+          </label>
+
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={deleteMissingProducts}
+              onChange={(e) => setDeleteMissingProducts(e.target.checked)}
+            />
+            Видаляти з Supabase товари, яких немає у файлі
           </label>
 
           {rows.length > 0 && (

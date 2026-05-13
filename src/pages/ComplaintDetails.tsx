@@ -16,7 +16,7 @@ import {
   Upload,
   X,
 } from 'lucide-react'
-import { getAttachmentBlob, getById, list } from '@/lib/db'
+import { getById, list } from '@/lib/db'
 import { Button, Card, Field, Input, Select, Textarea } from '@/components/ui/primitives'
 import { Autocomplete } from '@/components/ui/autocomplete'
 import { SourcePicker } from '@/components/ui/source-picker'
@@ -557,12 +557,6 @@ function AttachmentTile({
       if (att.drive_url?.startsWith('http')) {
         setUrl(att.drive_url)
         return
-      }
-      const blob = await getAttachmentBlob(att.id)
-      if (blob) {
-        const u = URL.createObjectURL(blob)
-        revoke = u
-        setUrl(u)
       }
     })()
     return () => {

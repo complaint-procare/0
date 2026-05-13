@@ -1,5 +1,4 @@
-// Supabase client. Used by the data layer when env vars are configured.
-// If `VITE_SUPABASE_URL` is empty the app keeps using the IndexedDB store in db.ts.
+// Supabase client. The app uses Supabase as the only persistent data store.
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { ComplaintAttachment } from './types'
 
