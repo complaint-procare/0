@@ -105,18 +105,21 @@ async function uploadFile(
     let folderId = complaint.drive_folder_id;
     let folderUrl = complaint.drive_folder_url;
     if (folderId?.startsWith("storage:")) {
-      return uploadToSupabaseStorage(supabase, complaint, file);
+      folderId = null;
+      folderUrl = null;
     }
-    if (!folderId && await shouldUseDrive(accessToken, rootFolder)) {
+    if (!folderId) {
+      if (!await isSharedDriveFolder(accessToken, rootFolder)) {
+        throw new Error(
+          "Google Drive root folder must be located in a Shared Drive for service-account uploads. Move the Complaints folder to a Shared Drive and share that drive with the service account.",
+        );
+      }
       const created = await driveCreateFolder(accessToken, `complaint-${complaint.number}`, rootFolder);
       folderId = created.id;
       folderUrl = `https://drive.google.com/drive/folders/${folderId}`;
       await supabase.from("complaints")
         .update({ drive_folder_id: folderId, drive_folder_url: folderUrl })
         .eq("id", complaint.id);
-    }
-    if (!folderId) {
-      return uploadToSupabaseStorage(supabase, complaint, file);
     }
 
     const uploaded = await driveUploadFile(accessToken, folderId!, file);
@@ -127,12 +130,16 @@ async function uploadFile(
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (!message.includes("Service Accounts do not have storage quota")) throw error;
-    return uploadToSupabaseStorage(supabase, complaint, file);
+    if (message.includes("Service Accounts do not have storage quota")) {
+      throw new Error(
+        "Google Drive rejected the upload because service accounts have no storage quota in My Drive. Use a Shared Drive folder or OAuth/domain delegation.",
+      );
+    }
+    throw error;
   }
 }
 
-async function shouldUseDrive(token: string, rootFolder: string): Promise<boolean> {
+async function isSharedDriveFolder(token: string, rootFolder: string): Promise<boolean> {
   const res = await fetch(
     `https://www.googleapis.com/drive/v3/files/${rootFolder}?fields=id,driveId&supportsAllDrives=true`,
     {
@@ -142,41 +149,6 @@ async function shouldUseDrive(token: string, rootFolder: string): Promise<boolea
   if (!res.ok) return false;
   const folder = await res.json();
   return Boolean(folder.driveId);
-}
-
-async function uploadToSupabaseStorage(
-  supabase: ReturnType<typeof createClient>,
-  complaint: { id: string; number: number },
-  file: File,
-) {
-  const extension = file.name.includes(".") ? file.name.split(".").pop()!.replace(/[^A-Za-z0-9]/g, "") : "";
-  const safeName = extension ? `attachment.${extension}` : "attachment";
-  const path = `${complaint.id}/${crypto.randomUUID()}-${safeName}`;
-  const { error: uploadError } = await supabase.storage
-    .from("complaint-media")
-    .upload(path, file, {
-      contentType: file.type || "application/octet-stream",
-      upsert: false,
-    });
-  if (uploadError) throw new Error(`storage upload: ${uploadError.message}`);
-
-  const { data, error: signedUrlError } = await supabase.storage
-    .from("complaint-media")
-    .createSignedUrl(path, 60 * 60 * 24 * 365 * 10);
-  if (signedUrlError) throw new Error(`storage signed url: ${signedUrlError.message}`);
-
-  await supabase.from("complaints")
-    .update({
-      drive_folder_id: `storage:${complaint.id}`,
-      drive_folder_url: null,
-    })
-    .eq("id", complaint.id);
-
-  return {
-    id: `storage:${path}`,
-    url: data.signedUrl,
-    folderUrl: null,
-  };
 }
 
 function json(body: unknown, status = 200) {

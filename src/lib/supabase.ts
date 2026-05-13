@@ -26,7 +26,17 @@ export async function uploadAttachment(complaintId: string, file: File, actorId:
     },
     body: fd,
   })
-  if (!res.ok) throw new Error(`upload failed: ${await res.text()}`)
+  if (!res.ok) {
+    const text = await res.text()
+    let message = `upload failed: ${text}`
+    try {
+      const body = JSON.parse(text) as { error?: string }
+      message = body.error ?? message
+    } catch {
+      // Keep raw response text when the function did not return JSON.
+    }
+    throw new Error(message)
+  }
   return res.json() as Promise<{
     attachment: ComplaintAttachment
     folder_url: string
