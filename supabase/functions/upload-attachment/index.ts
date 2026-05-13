@@ -131,7 +131,8 @@ async function uploadToSupabaseStorage(
   complaint: { id: string; number: number },
   file: File,
 ) {
-  const safeName = file.name.replace(/[^\p{L}\p{N}._-]+/gu, "_");
+  const extension = file.name.includes(".") ? file.name.split(".").pop()!.replace(/[^A-Za-z0-9]/g, "") : "";
+  const safeName = extension ? `attachment.${extension}` : "attachment";
   const path = `${complaint.id}/${crypto.randomUUID()}-${safeName}`;
   const { error: uploadError } = await supabase.storage
     .from("complaint-media")
