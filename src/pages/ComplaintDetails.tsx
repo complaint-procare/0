@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -550,54 +550,68 @@ function AttachmentTile({
   onDelete: () => void
   disabled: boolean
 }) {
-  const [url, setUrl] = useState<string | null>(null)
-  useEffect(() => {
-    let revoke: string | null = null
-    ;(async () => {
-      if (att.drive_url?.startsWith('http')) {
-        setUrl(att.drive_url)
-        return
-      }
-    })()
-    return () => {
-      if (revoke) URL.revokeObjectURL(revoke)
-    }
-  }, [att.drive_url, att.id])
-
+  const [thumbFailed, setThumbFailed] = useState(false)
   const isImage = att.mime_type.startsWith('image/')
   const isVideo = att.mime_type.startsWith('video/')
+  const thumbUrl = att.drive_file_id
+    ? `https://drive.google.com/thumbnail?id=${att.drive_file_id}&sz=w800`
+    : null
+  const viewUrl = att.drive_url || (att.drive_file_id ? `https://drive.google.com/file/d/${att.drive_file_id}/view` : null)
+  const canPreview = !!thumbUrl && !thumbFailed && (isImage || isVideo)
 
   return (
     <div className="card overflow-hidden p-0">
-      <div className="flex aspect-square items-center justify-center bg-muted">
-        {url && isImage && <img src={url} alt={att.file_name} className="h-full w-full object-cover" />}
-        {url && isVideo && (
-          <video src={url} className="h-full w-full object-cover" controls preload="metadata" />
-        )}
-        {(!url || (!isImage && !isVideo)) && (
-          <FileIcon className="h-10 w-10 text-muted-foreground" />
-        )}
-      </div>
+      <a
+        href={viewUrl ?? '#'}
+        target="_blank"
+        rel="noreferrer"
+        className="block aspect-square bg-muted"
+        title={att.file_name}
+      >
+        <div className="relative flex h-full w-full items-center justify-center">
+          {canPreview ? (
+            <img
+              src={thumbUrl!}
+              alt={att.file_name}
+              className="h-full w-full object-cover"
+              onError={() => setThumbFailed(true)}
+              loading="lazy"
+            />
+          ) : (
+            <FileIcon className="h-10 w-10 text-muted-foreground" />
+          )}
+          {canPreview && isVideo && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+              <Film className="h-8 w-8 text-white drop-shadow" />
+            </div>
+          )}
+        </div>
+      </a>
       <div className="space-y-1 p-2 text-xs">
         <p className="flex items-center gap-1 truncate font-medium" title={att.file_name}>
           {isImage ? (
-            <ImageIcon className="h-3 w-3" />
+            <ImageIcon className="h-3 w-3 shrink-0" />
           ) : isVideo ? (
-            <Film className="h-3 w-3" />
+            <Film className="h-3 w-3 shrink-0" />
           ) : (
-            <FileIcon className="h-3 w-3" />
+            <FileIcon className="h-3 w-3 shrink-0" />
           )}
-          {att.file_name}
+          <span className="truncate">{att.file_name}</span>
         </p>
         <p className="text-muted-foreground">{bytesToReadable(att.file_size)}</p>
         <div className="flex items-center justify-between pt-1">
-          {url ? (
-            <a href={url} download={att.file_name} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-              <Download className="inline h-3 w-3" /> Завантажити
+          {viewUrl ? (
+            <a
+              href={viewUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-primary hover:underline"
+            >
+              <ExternalLink className="inline h-3 w-3" /> Відкрити
             </a>
           ) : (
             <span className="text-muted-foreground">
-              <ExternalLink className="inline h-3 w-3" />
+              <Download className="inline h-3 w-3" />
             </span>
           )}
           {!disabled && (

@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Paperclip, Save, Trash2 } from 'lucide-react'
+import { ArrowLeft, File as FileIcon, Film, Image as ImageIcon, Paperclip, Save, Trash2 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { list } from '@/lib/db'
 import { Button, Card, Field, Input, Select, Textarea } from '@/components/ui/primitives'
@@ -244,27 +244,21 @@ export function NewComplaintPage() {
             <Input
               type="file"
               multiple
-              onChange={(e) =>
+              onChange={(e) => {
                 setFiles((prev) => [...prev, ...Array.from(e.target.files ?? [])])
-              }
+                e.target.value = ''
+              }}
             />
             {files.length > 0 && (
-              <ul className="space-y-1 text-xs">
+              <div className="grid grid-cols-2 gap-2">
                 {files.map((f, i) => (
-                  <li key={i} className="flex items-center justify-between gap-2">
-                    <span className="truncate">{f.name}</span>
-                    <span className="text-muted-foreground">{bytesToReadable(f.size)}</span>
-                    <button
-                      type="button"
-                      onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
-                      className="text-destructive"
-                      aria-label="Прибрати"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </li>
+                  <LocalPreviewTile
+                    key={`${f.name}-${i}`}
+                    file={f}
+                    onRemove={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
+                  />
                 ))}
-              </ul>
+              </div>
             )}
           </Card>
 
@@ -273,6 +267,56 @@ export function NewComplaintPage() {
           </Button>
         </div>
       </form>
+    </div>
+  )
+}
+
+function LocalPreviewTile({ file, onRemove }: { file: File; onRemove: () => void }) {
+  const [url, setUrl] = useState<string | null>(null)
+  const isImage = file.type.startsWith('image/')
+  const isVideo = file.type.startsWith('video/')
+
+  useEffect(() => {
+    if (!isImage && !isVideo) return
+    const objectUrl = URL.createObjectURL(file)
+    setUrl(objectUrl)
+    return () => URL.revokeObjectURL(objectUrl)
+  }, [file, isImage, isVideo])
+
+  return (
+    <div className="card overflow-hidden p-0">
+      <div className="flex aspect-square items-center justify-center bg-muted">
+        {url && isImage && (
+          <img src={url} alt={file.name} className="h-full w-full object-cover" />
+        )}
+        {url && isVideo && (
+          <video src={url} className="h-full w-full object-cover" preload="metadata" muted />
+        )}
+        {!isImage && !isVideo && <FileIcon className="h-10 w-10 text-muted-foreground" />}
+      </div>
+      <div className="space-y-1 p-2 text-xs">
+        <p className="flex items-center gap-1 truncate font-medium" title={file.name}>
+          {isImage ? (
+            <ImageIcon className="h-3 w-3 shrink-0" />
+          ) : isVideo ? (
+            <Film className="h-3 w-3 shrink-0" />
+          ) : (
+            <FileIcon className="h-3 w-3 shrink-0" />
+          )}
+          <span className="truncate">{file.name}</span>
+        </p>
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">{bytesToReadable(file.size)}</span>
+          <button
+            type="button"
+            onClick={onRemove}
+            className="text-destructive hover:underline"
+            aria-label="Прибрати"
+          >
+            <Trash2 className="inline h-3 w-3" />
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

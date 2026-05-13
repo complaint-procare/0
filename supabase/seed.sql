@@ -1,18 +1,6 @@
 -- Complaint CRM — initial seed data
--- Mirrors src/lib/seed.ts so a fresh Supabase project is immediately usable.
--- PINs are SHA-256 hashes (lowercase hex), matching src/lib/utils.ts → hashPin.
-
--- ============================================================
--- Users
--- ============================================================
-insert into public.users (full_name, role, pin_hash, is_active)
-values
-  ('Адмін Адмінович',  'admin',           encode(digest('complaint-crm:1234','sha256'),'hex'), true),
-  ('Ірина Менеджер',   'manager',         encode(digest('complaint-crm:1111','sha256'),'hex'), true),
-  ('Олег Керівник',    'supervisor',      encode(digest('complaint-crm:2222','sha256'),'hex'), true),
-  ('Марія Продакт',    'product_manager', encode(digest('complaint-crm:3333','sha256'),'hex'), true),
-  ('Тарас ВКЯ',        'qa',              encode(digest('complaint-crm:4444','sha256'),'hex'), true)
-on conflict do nothing;
+-- Only system reference data (statuses, severity levels, entity/field definitions).
+-- Business records (users, brands, products, networks, clients) are managed via the app UI.
 
 -- ============================================================
 -- Complaint statuses
@@ -37,34 +25,8 @@ insert into public.severity_levels (name, sort_order, color, is_active) values
   ('Критична',     50, 'bg-red-900/40 text-red-400 ring-1 ring-red-700/50', true)
 on conflict (name) do nothing;
 
--- ============================================================
--- Brands / products / retail networks / clients
--- ============================================================
-insert into public.brands (name, is_active) values
-  ('Joko Blend', true),
-  ('Skin Lab',   true),
-  ('Daily Care', true)
-on conflict (name) do nothing;
-
-insert into public.products (brand_id, name, sku, is_active)
-select b.id, p.name, p.sku, true from (values
-  ('Joko Blend', 'Кавовий скраб',            'JB-CSCR-200'),
-  ('Joko Blend', 'Молочко для тіла',         'JB-BMLK-250'),
-  ('Skin Lab',   'Сироватка з вітаміном C',  'SL-SERC-30'),
-  ('Daily Care', 'Крем для рук',             'DC-HCR-75')
-) as p(brand_name, name, sku)
-join public.brands b on b.name = p.brand_name
-on conflict do nothing;
-
-insert into public.retail_networks (name, is_active) values
-  ('EVA',     true),
-  ('Watsons', true),
-  ('Prostor', true),
-  ('Rozetka', true)
-on conflict (name) do nothing;
-
--- Clients are operational records and should be created from the app,
--- not preloaded as demo data.
+-- Brands, products, retail networks, clients and users are operational data
+-- created via the app UI — they must not be seeded here.
 
 -- ============================================================
 -- Entity definitions (system entities)

@@ -65,22 +65,17 @@ await run('Link Supabase project', ['link', '--project-ref', projectRef])
 await run('Push database migrations', ['db', 'push'])
 await run('Seed linked database', ['db', 'query', '--linked', '--file', 'supabase/seed.sql'])
 
-const googleSecretKeys = [
-  'GOOGLE_SERVICE_ACCOUNT_EMAIL',
-  'GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY',
-  'GOOGLE_DRIVE_ROOT_FOLDER_ID',
-]
-const googleMissing = googleSecretKeys.filter((key) => !env[key])
+const googleOauthKeys = ['GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET']
+const oauthMissing = googleOauthKeys.filter((key) => !env[key])
 
-if (googleMissing.length) {
-  console.warn(`\nSkipping Google Drive secrets; missing: ${googleMissing.join(', ')}`)
+if (oauthMissing.length) {
+  console.warn(`\nSkipping Google OAuth secrets; missing: ${oauthMissing.join(', ')}`)
 } else {
-  await run('Set Google Drive Edge Function secrets', [
+  await run('Set Google OAuth Edge Function secrets', [
     'secrets',
     'set',
-    `GOOGLE_SERVICE_ACCOUNT_EMAIL=${env.GOOGLE_SERVICE_ACCOUNT_EMAIL}`,
-    `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=${env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY}`,
-    `GOOGLE_DRIVE_ROOT_FOLDER_ID=${env.GOOGLE_DRIVE_ROOT_FOLDER_ID}`,
+    `GOOGLE_OAUTH_CLIENT_ID=${env.GOOGLE_OAUTH_CLIENT_ID}`,
+    `GOOGLE_OAUTH_CLIENT_SECRET=${env.GOOGLE_OAUTH_CLIENT_SECRET}`,
   ])
 }
 
@@ -88,6 +83,13 @@ await run('Deploy upload-attachment Edge Function', [
   'functions',
   'deploy',
   'upload-attachment',
+  '--no-verify-jwt',
+])
+
+await run('Deploy google-oauth-callback Edge Function', [
+  'functions',
+  'deploy',
+  'google-oauth-callback',
   '--no-verify-jwt',
 ])
 
