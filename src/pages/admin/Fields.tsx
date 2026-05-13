@@ -143,6 +143,7 @@ export function FieldsPage() {
     }
     setEditing(null)
     qc.invalidateQueries({ queryKey: ['field_definitions'] })
+    qc.invalidateQueries({ queryKey: ['complaints-page'] })
     toast.show('Збережено', 'success')
   }
 
@@ -216,6 +217,7 @@ export function FieldsPage() {
                             is_active: v,
                             updated_at: new Date().toISOString(),
                           })
+                          qc.invalidateQueries({ queryKey: ['complaints-page'] })
                           refetchFields()
                         }}
                         aria-label="Активне"
@@ -231,6 +233,7 @@ export function FieldsPage() {
                             is_visible: !f.is_visible,
                             updated_at: new Date().toISOString(),
                           })
+                          qc.invalidateQueries({ queryKey: ['complaints-page'] })
                           refetchFields()
                         }}
                       >
@@ -414,6 +417,7 @@ export function FieldsPage() {
           }
           await remove('field_definitions', confirmDelete.id)
           qc.invalidateQueries({ queryKey: ['field_definitions'] })
+          qc.invalidateQueries({ queryKey: ['complaints-page'] })
           toast.show('Видалено', 'success')
         }}
         title="Видалити поле?"

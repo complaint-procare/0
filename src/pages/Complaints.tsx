@@ -5,7 +5,7 @@ import { Filter, Paperclip, Plus, Search, Trash2, X } from 'lucide-react'
 import { list, remove } from '@/lib/db'
 import { Button, Card, EmptyState, Input, Select } from '@/components/ui/primitives'
 import { formatDate, formatPhone, padComplaintNumber } from '@/lib/utils'
-import type { Complaint, ComplaintAttachment } from '@/lib/types'
+import type { Complaint, ComplaintAttachment, ComplaintStatus, FieldDefinition, SeverityLevel } from '@/lib/types'
 import { StatusBadge, SeverityBadge } from '@/components/Badges'
 import { ConfirmDialog, Dialog } from '@/components/ui/dialog'
 import { updateComplaint } from '@/lib/complaints'
@@ -36,6 +36,36 @@ const EMPTY: Filters = {
   search: '',
 }
 
+type RegistryField = Pick<FieldDefinition, 'field_key' | 'label' | 'field_type' | 'sort_order'>
+type LookupCollection = { id: string; name?: string; full_name?: string }[]
+type LookupById = (collection: LookupCollection, id: string | null) => string
+
+interface ComplaintsPageData {
+  complaints: Complaint[]
+  statuses: ComplaintStatus[]
+  severities: SeverityLevel[]
+  brands: { id: string; name: string }[]
+  networks: { id: string; name: string }[]
+  users: { id: string; full_name: string }[]
+  attachments: ComplaintAttachment[]
+  entities: { id: string; entity_key: string }[]
+  fields: FieldDefinition[]
+}
+
+const DEFAULT_REGISTRY_FIELDS: RegistryField[] = [
+  { field_key: 'number', label: '№', field_type: 'text', sort_order: 10 },
+  { field_key: 'created_at', label: 'Дата', field_type: 'date', sort_order: 20 },
+  { field_key: 'source_type', label: 'Джерело', field_type: 'select', sort_order: 45 },
+  { field_key: 'brand_id', label: 'Бренд', field_type: 'reference', sort_order: 60 },
+  { field_key: 'product_name', label: 'Продукт', field_type: 'text', sort_order: 70 },
+  { field_key: 'product_barcode', label: 'Штрихкод', field_type: 'text', sort_order: 75 },
+  { field_key: 'batch_number', label: 'Партія', field_type: 'text', sort_order: 80 },
+  { field_key: 'manager_id', label: 'Менеджер', field_type: 'reference', sort_order: 90 },
+  { field_key: 'problem_description', label: 'Опис', field_type: 'textarea', sort_order: 100 },
+  { field_key: 'severity_id', label: 'Критичність', field_type: 'reference', sort_order: 110 },
+  { field_key: 'status_id', label: 'Статус', field_type: 'reference', sort_order: 120 },
+]
+
 export function ComplaintsPage() {
   const { session, isAdmin } = useAuth()
   const toast = useToast()
@@ -47,7 +77,7 @@ export function ComplaintsPage() {
   const { data, refetch, isLoading } = useQuery({
     queryKey: ['complaints-page'],
     queryFn: async () => {
-      const [complaints, statuses, severities, brands, networks, users, attachments] =
+      const [complaints, statuses, severities, brands, networks, users, attachments, entities, fields] =
         await Promise.all([
           list('complaints'),
           list('complaint_statuses'),
@@ -56,8 +86,10 @@ export function ComplaintsPage() {
           list('retail_networks'),
           list('users'),
           list('complaint_attachments'),
+          list('entity_definitions'),
+          list('field_definitions'),
         ])
-      return { complaints, statuses, severities, brands, networks, users, attachments }
+      return { complaints, statuses, severities, brands, networks, users, attachments, entities, fields }
     },
   })
 
@@ -93,6 +125,23 @@ export function ComplaintsPage() {
       map.set(a.complaint_id, (map.get(a.complaint_id) ?? 0) + 1)
     }
     return map
+  }, [data])
+
+  const registryFields = useMemo<RegistryField[]>(() => {
+    if (!data) return DEFAULT_REGISTRY_FIELDS
+    const complaintEntity = data.entities.find((e) => e.entity_key === 'complaints')
+    if (!complaintEntity) return DEFAULT_REGISTRY_FIELDS
+    const fields = data.fields
+      .filter(
+        (f) =>
+          f.entity_id === complaintEntity.id &&
+          f.is_active &&
+          f.is_visible &&
+          f.show_in_registry &&
+          !f.deleted_at,
+      )
+      .sort((a, b) => a.sort_order - b.sort_order)
+    return fields.length ? fields : DEFAULT_REGISTRY_FIELDS
   }, [data])
 
   const byId = (collection: { id: string; name?: string; full_name?: string }[], id: string | null) => {
@@ -171,17 +220,11 @@ export function ComplaintsPage() {
               <table className="min-w-full text-sm">
                 <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
-                    <th className="px-3 py-2">№</th>
-                    <th className="px-3 py-2">Дата</th>
-                    <th className="px-3 py-2">Джерело</th>
-                    <th className="px-3 py-2">Бренд</th>
-                    <th className="px-3 py-2">Продукт</th>
-                    <th className="px-3 py-2">Штрихкод</th>
-                    <th className="px-3 py-2">Партія</th>
-                    <th className="px-3 py-2">Менеджер</th>
-                    <th className="px-3 py-2">Опис</th>
-                    <th className="px-3 py-2">Критичність</th>
-                    <th className="px-3 py-2">Статус</th>
+                    {registryFields.map((field) => (
+                      <th key={field.field_key} className={registryHeaderClass(field.field_key)}>
+                        {registryLabel(field)}
+                      </th>
+                    ))}
                     <th className="px-3 py-2 text-center">Файли</th>
                     <th className="px-3 py-2 text-right">Дії</th>
                   </tr>
@@ -189,38 +232,17 @@ export function ComplaintsPage() {
                 <tbody>
                   {filtered.map((c) => (
                     <tr key={c.id} className="border-b border-border last:border-0 hover:bg-muted/40">
-                      <td className="px-3 py-2 font-mono">{padComplaintNumber(c.number)}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{formatDate(c.created_at)}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        {c.source_type === 'client' ? (
-                          <span className="font-mono text-xs">{formatPhone(c.client_phone)}</span>
-                        ) : (
-                          byId(data!.networks, c.retail_network_id)
-                        )}
-                      </td>
-                      <td className="px-3 py-2">{byId(data!.brands, c.brand_id)}</td>
-                      <td className="px-3 py-2">{c.product_name || '—'}</td>
-                      <td className="px-3 py-2 font-mono text-xs">{c.product_barcode || '—'}</td>
-                      <td className="px-3 py-2 font-mono text-xs">{c.batch_number}</td>
-                      <td className="px-3 py-2">{byId(data!.users, c.manager_id)}</td>
-                      <td className="px-3 py-2 max-w-[280px] truncate" title={c.problem_description}>
-                        {c.problem_description}
-                      </td>
-                      <td className="px-3 py-2">
-                        <SeverityBadge id={c.severity_id} levels={data!.severities} />
-                      </td>
-                      <td className="px-3 py-2">
-                        <StatusBadge id={c.status_id} statuses={data!.statuses} />
-                      </td>
+                      {registryFields.map((field) => (
+                        <td
+                          key={field.field_key}
+                          className={registryCellClass(field.field_key)}
+                          title={registryTitle(field.field_key, c)}
+                        >
+                          {renderRegistryValue(field, c, data!, countByComplaint, byId)}
+                        </td>
+                      ))}
                       <td className="px-3 py-2 text-center">
-                        {countByComplaint.get(c.id) ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                            <Paperclip className="h-3 w-3" />
-                            {countByComplaint.get(c.id)}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
+                        {renderAttachmentCount(c.id, countByComplaint)}
                       </td>
                       <td className="px-3 py-2 text-right">
                         <div className="flex justify-end gap-1">
@@ -265,42 +287,23 @@ export function ComplaintsPage() {
         <div className="grid gap-3 md:hidden">
           {filtered.map((c) => (
             <Card key={c.id} className="space-y-2">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="font-mono text-sm font-semibold">#{padComplaintNumber(c.number)}</p>
-                  <p className="text-xs text-muted-foreground">{formatDate(c.created_at)}</p>
-                </div>
-                <SeverityBadge id={c.severity_id} levels={data!.severities} />
-              </div>
               <div className="grid grid-cols-2 gap-1 text-xs">
-                <div className="text-muted-foreground">
-                  {c.source_type === 'client' ? 'Клієнт' : 'Мережа'}
-                </div>
-                <div className={c.source_type === 'client' ? 'font-mono' : undefined}>
-                  {c.source_type === 'client'
-                    ? formatPhone(c.client_phone)
-                    : byId(data!.networks, c.retail_network_id)}
-                </div>
-                <div className="text-muted-foreground">Бренд</div>
-                <div>{byId(data!.brands, c.brand_id)}</div>
-                <div className="text-muted-foreground">Продукт</div>
-                <div>{c.product_name || '—'}</div>
-                {c.product_barcode && (
-                  <>
-                    <div className="text-muted-foreground">Штрихкод</div>
-                    <div className="font-mono">{c.product_barcode}</div>
-                  </>
-                )}
-                <div className="text-muted-foreground">Партія</div>
-                <div className="font-mono">{c.batch_number}</div>
+                {registryFields.map((field) => (
+                  <div key={field.field_key} className="contents">
+                    <div className="text-muted-foreground">{registryLabel(field)}</div>
+                    <div className={registryMobileValueClass(field.field_key)}>
+                      {renderRegistryValue(field, c, data!, countByComplaint, byId)}
+                    </div>
+                  </div>
+                ))}
+                <div className="text-muted-foreground">Файли</div>
+                <div>{renderAttachmentCount(c.id, countByComplaint)}</div>
               </div>
-              <p className="line-clamp-2 text-sm">{c.problem_description}</p>
               <div className="flex items-center justify-between gap-2 pt-2">
-                <StatusBadge id={c.status_id} statuses={data!.statuses} />
+                <Link to={`/complaints/${c.id}`} className="btn btn-outline btn-sm">
+                  Відкрити
+                </Link>
                 <div className="flex gap-1">
-                  <Link to={`/complaints/${c.id}`} className="btn btn-outline btn-sm">
-                    Відкрити
-                  </Link>
                   <Button size="sm" variant="ghost" onClick={() => setStatusModal(c)}>
                     Статус
                   </Button>
@@ -350,6 +353,108 @@ export function ComplaintsPage() {
       />
     </div>
   )
+}
+
+function registryLabel(field: RegistryField): string {
+  if (field.field_key === 'number') return '№'
+  if (field.field_key === 'created_at') return 'Дата'
+  if (field.field_key === 'source_type') return field.label === 'Тип джерела' ? 'Джерело' : field.label
+  if (field.field_key === 'product_barcode') return 'Штрихкод'
+  if (field.field_key === 'batch_number') return 'Партія'
+  if (field.field_key === 'problem_description') return 'Опис'
+  return field.label
+}
+
+function registryHeaderClass(fieldKey: string): string {
+  if (fieldKey === 'files') return 'px-3 py-2 text-center'
+  return 'px-3 py-2'
+}
+
+function registryCellClass(fieldKey: string): string {
+  const base = 'px-3 py-2'
+  if (['number', 'product_barcode', 'batch_number'].includes(fieldKey)) return `${base} font-mono text-xs`
+  if (['created_at', 'source_type', 'client_phone'].includes(fieldKey)) return `${base} whitespace-nowrap`
+  if (fieldKey === 'problem_description') return `${base} max-w-[280px] truncate`
+  if (fieldKey === 'product_name') return `${base} min-w-[180px]`
+  return base
+}
+
+function registryMobileValueClass(fieldKey: string): string | undefined {
+  if (['number', 'product_barcode', 'batch_number', 'client_phone'].includes(fieldKey)) return 'font-mono'
+  if (fieldKey === 'problem_description') return 'line-clamp-2'
+  return undefined
+}
+
+function registryTitle(fieldKey: string, complaint: Complaint): string | undefined {
+  if (fieldKey === 'problem_description') return complaint.problem_description
+  if (fieldKey === 'product_name') return complaint.product_name
+  return undefined
+}
+
+function renderRegistryValue(
+  field: RegistryField,
+  complaint: Complaint,
+  data: ComplaintsPageData,
+  countByComplaint: Map<string, number>,
+  byId: LookupById,
+) {
+  switch (field.field_key) {
+    case 'number':
+      return padComplaintNumber(complaint.number)
+    case 'created_at':
+      return formatDate(complaint.created_at)
+    case 'created_by':
+      return byId(data.users, complaint.created_by)
+    case 'manager_id':
+      return byId(data.users, complaint.manager_id)
+    case 'source_type':
+      return complaint.source_type === 'client'
+        ? formatPhone(complaint.client_phone)
+        : byId(data.networks, complaint.retail_network_id)
+    case 'retail_network_id':
+      return byId(data.networks, complaint.retail_network_id)
+    case 'client_phone':
+      return formatPhone(complaint.client_phone)
+    case 'brand_id':
+      return byId(data.brands, complaint.brand_id)
+    case 'product_name':
+      return complaint.product_name || '—'
+    case 'product_barcode':
+      return complaint.product_barcode || '—'
+    case 'batch_number':
+      return complaint.batch_number || '—'
+    case 'problem_description':
+      return complaint.problem_description || '—'
+    case 'severity_id':
+      return <SeverityBadge id={complaint.severity_id} levels={data.severities} />
+    case 'status_id':
+      return <StatusBadge id={complaint.status_id} statuses={data.statuses} />
+    case 'files':
+    case 'attachments':
+      return renderAttachmentCount(complaint.id, countByComplaint)
+    default:
+      return formatRegistryValue(complaint.custom_fields?.[field.field_key], field.field_type)
+  }
+}
+
+function renderAttachmentCount(complaintId: string, countByComplaint: Map<string, number>) {
+  const count = countByComplaint.get(complaintId)
+  if (!count) return <span className="text-xs text-muted-foreground">—</span>
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+      <Paperclip className="h-3 w-3" />
+      {count}
+    </span>
+  )
+}
+
+function formatRegistryValue(value: unknown, type: FieldDefinition['field_type']) {
+  if (value === null || value === undefined || value === '') return '—'
+  if (type === 'boolean') return value ? 'Так' : 'Ні'
+  if (type === 'date' && typeof value === 'string') return formatDate(value)
+  if (Array.isArray(value)) return value.join(', ')
+  if (typeof value === 'object') return JSON.stringify(value)
+  return String(value)
 }
 
 function FilterRow({
