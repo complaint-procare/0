@@ -104,13 +104,19 @@ async function uploadFile(
 
     let folderId = complaint.drive_folder_id;
     let folderUrl = complaint.drive_folder_url;
-    if (!folderId || folderId.startsWith("storage:")) {
+    if (folderId?.startsWith("storage:")) {
+      return uploadToSupabaseStorage(supabase, complaint, file);
+    }
+    if (!folderId && await shouldUseDrive(accessToken, rootFolder)) {
       const created = await driveCreateFolder(accessToken, `complaint-${complaint.number}`, rootFolder);
       folderId = created.id;
       folderUrl = `https://drive.google.com/drive/folders/${folderId}`;
       await supabase.from("complaints")
         .update({ drive_folder_id: folderId, drive_folder_url: folderUrl })
         .eq("id", complaint.id);
+    }
+    if (!folderId) {
+      return uploadToSupabaseStorage(supabase, complaint, file);
     }
 
     const uploaded = await driveUploadFile(accessToken, folderId!, file);
@@ -124,6 +130,18 @@ async function uploadFile(
     if (!message.includes("Service Accounts do not have storage quota")) throw error;
     return uploadToSupabaseStorage(supabase, complaint, file);
   }
+}
+
+async function shouldUseDrive(token: string, rootFolder: string): Promise<boolean> {
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${rootFolder}?fields=id,driveId&supportsAllDrives=true`,
+    {
+      headers: { authorization: `Bearer ${token}` },
+    },
+  );
+  if (!res.ok) return false;
+  const folder = await res.json();
+  return Boolean(folder.driveId);
 }
 
 async function uploadToSupabaseStorage(
