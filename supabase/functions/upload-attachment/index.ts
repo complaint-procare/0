@@ -25,8 +25,9 @@ const CORS = {
 };
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
-  if (req.method !== "POST")    return json({ error: "method not allowed" }, 405);
+  try {
+    if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+    if (req.method !== "POST")    return json({ error: "method not allowed" }, 405);
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
   const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -67,27 +68,14 @@ Deno.serve(async (req) => {
     .single();
   if (cErr || !complaint) return json({ error: "complaint not found" }, 404);
 
-  const accessToken = await getGoogleAccessToken();
-
-  let folderId = complaint.drive_folder_id;
-  let folderUrl = complaint.drive_folder_url;
-  if (!folderId) {
-    const created = await driveCreateFolder(accessToken, `complaint-${complaint.number}`, ROOT_FOLDER);
-    folderId  = created.id;
-    folderUrl = `https://drive.google.com/drive/folders/${folderId}`;
-    await supabase.from("complaints")
-      .update({ drive_folder_id: folderId, drive_folder_url: folderUrl })
-      .eq("id", complaint.id);
-  }
-
-  const uploaded = await driveUploadFile(accessToken, folderId!, file);
+  const uploaded = await uploadFile(supabase, complaint, file, ROOT_FOLDER);
 
   const { data: row, error: insErr } = await supabase
     .from("complaint_attachments")
     .insert({
       complaint_id: complaintId,
       drive_file_id: uploaded.id,
-      drive_url:    `https://drive.google.com/file/d/${uploaded.id}/view`,
+      drive_url:    uploaded.url,
       file_name:    file.name,
       mime_type:    file.type || "application/octet-stream",
       file_size:    file.size,
@@ -97,10 +85,80 @@ Deno.serve(async (req) => {
     .single();
   if (insErr) return json({ error: insErr.message }, 500);
 
-  return json({ attachment: row, folder_url: folderUrl });
+    return json({ attachment: row, folder_url: uploaded.folderUrl });
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : String(error) }, 500);
+  }
 });
 
 // ---------- helpers ----------
+
+async function uploadFile(
+  supabase: ReturnType<typeof createClient>,
+  complaint: { id: string; number: number; drive_folder_id: string | null; drive_folder_url: string | null },
+  file: File,
+  rootFolder: string,
+) {
+  try {
+    const accessToken = await getGoogleAccessToken();
+
+    let folderId = complaint.drive_folder_id;
+    let folderUrl = complaint.drive_folder_url;
+    if (!folderId || folderId.startsWith("storage:")) {
+      const created = await driveCreateFolder(accessToken, `complaint-${complaint.number}`, rootFolder);
+      folderId = created.id;
+      folderUrl = `https://drive.google.com/drive/folders/${folderId}`;
+      await supabase.from("complaints")
+        .update({ drive_folder_id: folderId, drive_folder_url: folderUrl })
+        .eq("id", complaint.id);
+    }
+
+    const uploaded = await driveUploadFile(accessToken, folderId!, file);
+    return {
+      id: uploaded.id as string,
+      url: `https://drive.google.com/file/d/${uploaded.id}/view`,
+      folderUrl,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes("Service Accounts do not have storage quota")) throw error;
+    return uploadToSupabaseStorage(supabase, complaint, file);
+  }
+}
+
+async function uploadToSupabaseStorage(
+  supabase: ReturnType<typeof createClient>,
+  complaint: { id: string; number: number },
+  file: File,
+) {
+  const safeName = file.name.replace(/[^\p{L}\p{N}._-]+/gu, "_");
+  const path = `${complaint.id}/${crypto.randomUUID()}-${safeName}`;
+  const { error: uploadError } = await supabase.storage
+    .from("complaint-media")
+    .upload(path, file, {
+      contentType: file.type || "application/octet-stream",
+      upsert: false,
+    });
+  if (uploadError) throw new Error(`storage upload: ${uploadError.message}`);
+
+  const { data, error: signedUrlError } = await supabase.storage
+    .from("complaint-media")
+    .createSignedUrl(path, 60 * 60 * 24 * 365 * 10);
+  if (signedUrlError) throw new Error(`storage signed url: ${signedUrlError.message}`);
+
+  await supabase.from("complaints")
+    .update({
+      drive_folder_id: `storage:${complaint.id}`,
+      drive_folder_url: null,
+    })
+    .eq("id", complaint.id);
+
+  return {
+    id: `storage:${path}`,
+    url: data.signedUrl,
+    folderUrl: null,
+  };
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -165,7 +223,7 @@ function pemToPkcs8(pem: string): ArrayBuffer {
 }
 
 async function driveCreateFolder(token: string, name: string, parent: string) {
-  const res = await fetch("https://www.googleapis.com/drive/v3/files", {
+  const res = await fetch("https://www.googleapis.com/drive/v3/files?supportsAllDrives=true", {
     method: "POST",
     headers: {
       authorization: `Bearer ${token}`,
@@ -197,7 +255,7 @@ async function driveUploadFile(token: string, folderId: string, file: File) {
     `\r\n--${boundary}--`,
   ]);
   const res = await fetch(
-    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink",
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,name,webViewLink",
     {
       method: "POST",
       headers: {

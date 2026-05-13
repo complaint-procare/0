@@ -20,7 +20,10 @@ export async function uploadAttachment(complaintId: string, file: File, actorId:
 
   const res = await fetch(`${url}/functions/v1/upload-attachment`, {
     method: 'POST',
-    headers: { apikey: anonKey! },
+    headers: {
+      apikey: anonKey!,
+      authorization: `Bearer ${anonKey!}`,
+    },
     body: fd,
   })
   if (!res.ok) throw new Error(`upload failed: ${await res.text()}`)
