@@ -74,9 +74,15 @@ export function NewComplaintPage() {
     }
     setSubmitting(true)
     try {
+      const actor = data.users.find((u) => u.id === session.user_id)
+        ?? data.users.find((u) => u.full_name === session.full_name && u.role === session.role)
+      if (!actor) {
+        toast.show('Сесію не знайдено в Supabase. Вийдіть і увійдіть знову.', 'error')
+        return
+      }
       const c = await createComplaint({
-        actor_id: session.user_id,
-        manager_id: session.user_id,
+        actor_id: actor.id,
+        manager_id: actor.id,
         source_type: form.source_type,
         retail_network_id: form.retail_network_id,
         client_phone: fullPhone(form.phone_suffix),

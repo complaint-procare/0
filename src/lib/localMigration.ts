@@ -1,8 +1,7 @@
 import localforage from 'localforage'
 import { supabase } from './supabase'
-import type { AuthSession, Brand, Product } from './types'
+import type { Brand, Product } from './types'
 
-const SESSION_KEY = '__auth_session__'
 const MIGRATION_DONE_KEY = '__indexeddb_to_supabase_migrated__'
 
 const MAIN_STORE = localforage.createInstance({
@@ -31,15 +30,10 @@ export async function migrateLocalIndexedDbToSupabase(): Promise<LocalMigrationR
     return { skipped: true, brands: 0, productsUpserted: 0, productsDeleted: 0 }
   }
 
-  const [localBrands, localProducts, localSession] = await Promise.all([
+  const [localBrands, localProducts] = await Promise.all([
     MAIN_STORE.getItem<Brand[]>('brands'),
     MAIN_STORE.getItem<Product[]>('products'),
-    MAIN_STORE.getItem<AuthSession>(SESSION_KEY),
   ])
-
-  if (localSession) {
-    window.localStorage.setItem(SESSION_KEY, JSON.stringify(localSession))
-  }
 
   if (!localBrands?.length && !localProducts?.length) {
     window.localStorage.setItem(MIGRATION_DONE_KEY, new Date().toISOString())
