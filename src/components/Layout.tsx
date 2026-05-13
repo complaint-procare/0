@@ -64,7 +64,6 @@ export function Layout({ children }: { children: ReactNode }) {
   const { session, signOut, isAdmin } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
   const nav = useNavigate()
-  const loc = useLocation()
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -178,7 +177,7 @@ export function Layout({ children }: { children: ReactNode }) {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 items-center justify-between bg-background px-4 md:px-8">
+        <header className="flex h-16 items-center justify-between bg-background px-4 md:hidden">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileOpen(true)}
@@ -190,23 +189,7 @@ export function Layout({ children }: { children: ReactNode }) {
             <Link to="/complaints" className="font-bold tracking-tight text-foreground md:hidden">
               Oops!
             </Link>
-            <div className="hidden md:block">
-              <p className="text-lg font-semibold text-foreground">
-                {session ? `Доброго ранку, ${session.full_name.split(' ')[0]}` : pageTitle(loc.pathname)}
-              </p>
-            </div>
           </div>
-          {session && (
-            <div className="hidden items-center gap-3 md:flex">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground text-xs font-bold text-background">
-                {session.full_name.charAt(0).toUpperCase()}
-              </div>
-              <div className="text-sm">
-                <p className="font-medium text-foreground leading-tight">{session.full_name}</p>
-                <p className="text-[11px] text-muted-foreground leading-tight">{ROLE_LABELS[session.role]}</p>
-              </div>
-            </div>
-          )}
           {session && (
             <div className="text-xs text-muted-foreground md:hidden">{session.full_name}</div>
           )}
@@ -322,13 +305,4 @@ function NavGroupItem({
       )}
     </div>
   )
-}
-
-function pageTitle(path: string): string {
-  if (path === '/complaints') return 'Скарги'
-  if (path === '/analytics') return 'Аналітика'
-  if (path === '/complaints/new') return 'Нова скарга'
-  if (path.startsWith('/complaints/')) return 'Скарга'
-  if (path.startsWith('/settings')) return 'Налаштування'
-  return ''
 }
