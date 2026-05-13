@@ -17,6 +17,14 @@ export async function hashPin(pin: string): Promise<string> {
     .join('')
 }
 
+export async function legacyHashPin(pin: string): Promise<string> {
+  const enc = new TextEncoder().encode(pin)
+  const hash = await crypto.subtle.digest('SHA-256', enc)
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
 export function formatDate(value: string | Date | null | undefined): string {
   if (!value) return '—'
   const d = typeof value === 'string' ? new Date(value) : value

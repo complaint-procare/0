@@ -7,11 +7,11 @@
 -- ============================================================
 insert into public.users (full_name, role, pin_hash, is_active)
 values
-  ('Адмін Адмінович',  'admin',           encode(digest('1234','sha256'),'hex'), true),
-  ('Ірина Менеджер',   'manager',         encode(digest('1111','sha256'),'hex'), true),
-  ('Олег Керівник',    'supervisor',      encode(digest('2222','sha256'),'hex'), true),
-  ('Марія Продакт',    'product_manager', encode(digest('3333','sha256'),'hex'), true),
-  ('Тарас ВКЯ',        'qa',              encode(digest('4444','sha256'),'hex'), true)
+  ('Адмін Адмінович',  'admin',           encode(digest('complaint-crm:1234','sha256'),'hex'), true),
+  ('Ірина Менеджер',   'manager',         encode(digest('complaint-crm:1111','sha256'),'hex'), true),
+  ('Олег Керівник',    'supervisor',      encode(digest('complaint-crm:2222','sha256'),'hex'), true),
+  ('Марія Продакт',    'product_manager', encode(digest('complaint-crm:3333','sha256'),'hex'), true),
+  ('Тарас ВКЯ',        'qa',              encode(digest('complaint-crm:4444','sha256'),'hex'), true)
 on conflict do nothing;
 
 -- ============================================================

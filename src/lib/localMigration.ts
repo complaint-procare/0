@@ -47,16 +47,38 @@ export async function migrateLocalIndexedDbToSupabase(): Promise<LocalMigrationR
     return { skipped: true, brands: 0, productsUpserted: 0, productsDeleted: 0 }
   }
 
-  if (localBrands?.length) {
-    const { error } = await supabase.from('brands').upsert(localBrands, { onConflict: 'id' })
-    if (error) throw error
+  const brandIdMap = new Map<string, string>()
+  for (const brand of localBrands ?? []) {
+    const { data: existing, error: readError } = await supabase
+      .from('brands')
+      .select('*')
+      .eq('name', brand.name)
+      .maybeSingle()
+    if (readError) throw readError
+
+    if (existing) {
+      brandIdMap.set(brand.id, existing.id as string)
+      continue
+    }
+
+    const { data: inserted, error: insertError } = await supabase
+      .from('brands')
+      .insert(brand)
+      .select('*')
+      .single()
+    if (insertError) throw insertError
+    brandIdMap.set(brand.id, inserted.id as string)
   }
 
   if (localProducts?.length) {
-    const { error } = await supabase.from('products').upsert(localProducts, { onConflict: 'id' })
+    const products = localProducts.map((product) => ({
+      ...product,
+      brand_id: product.brand_id ? brandIdMap.get(product.brand_id) ?? null : null,
+    }))
+    const { error } = await supabase.from('products').upsert(products, { onConflict: 'id' })
     if (error) throw error
 
-    const keepIds = new Set(localProducts.map((product) => product.id))
+    const keepIds = new Set(products.map((product) => product.id))
     const { data: supabaseProducts, error: listError } = await supabase
       .from('products')
       .select('id')
@@ -76,7 +98,7 @@ export async function migrateLocalIndexedDbToSupabase(): Promise<LocalMigrationR
     return {
       skipped: false,
       brands: localBrands?.length ?? 0,
-      productsUpserted: localProducts.length,
+      productsUpserted: products.length,
       productsDeleted: deleteIds.length,
     }
   }

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
-import { getSession, list, setSession } from './db'
-import { hashPin } from './utils'
+import { getSession, list, setSession, update } from './db'
+import { hashPin, legacyHashPin } from './utils'
 import type { AuthSession, Role } from './types'
 import { ensureSeed } from './seed'
 import { migrateLocalIndexedDbToSupabase } from './localMigration'
@@ -46,10 +46,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { ok: false as const, error: 'PIN має складатись з 4 цифр' }
     }
     const hash = await hashPin(pin)
+    const legacyHash = await legacyHashPin(pin)
     const users = await list('users')
-    const user = users.find((u) => u.pin_hash === hash)
+    const user = users.find((u) => u.pin_hash === hash || u.pin_hash === legacyHash)
     if (!user) return { ok: false as const, error: 'Невірний PIN' }
     if (!user.is_active) return { ok: false as const, error: 'Користувач неактивний' }
+    if (user.pin_hash === legacyHash) {
+      await update('users', user.id, { pin_hash: hash })
+    }
     const newSession: AuthSession = {
       user_id: user.id,
       full_name: user.full_name,
