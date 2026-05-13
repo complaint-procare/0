@@ -3,7 +3,6 @@ import { getSession, list, setSession, update } from './db'
 import { hashPin, legacyHashPin } from './utils'
 import type { AuthSession, Role } from './types'
 import { ensureSeed } from './seed'
-import { migrateLocalIndexedDbToSupabase } from './localMigration'
 
 interface AuthContextValue {
   session: AuthSession | null
@@ -24,7 +23,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let active = true
     ;(async () => {
       try {
-        await migrateLocalIndexedDbToSupabase()
         await ensureSeed()
         const s = await getSession()
         const validSession = s ? await normalizeSession(s) : null

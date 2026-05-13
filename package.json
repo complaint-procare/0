@@ -17,7 +17,6 @@
     "@tanstack/react-table": "^8.20.5",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
-    "localforage": "^1.10.0",
     "lucide-react": "^0.460.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

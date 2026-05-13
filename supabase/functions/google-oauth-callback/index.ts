@@ -19,7 +19,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 const ROOT_FOLDER_NAME = "Complaints";
 const ALLOWED_ORIGINS = [
-  "http://localhost:5174",
   "http://localhost:5173",
   "https://complaint-procare.github.io",
 ];

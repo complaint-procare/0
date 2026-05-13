@@ -15,10 +15,12 @@
 | Тип       | Імʼя                  | Значення                                                |
 |-----------|-----------------------|---------------------------------------------------------|
 | Variable  | `SUPABASE_URL`        | `https://<ref>.supabase.co`                             |
-| Secret    | `SUPABASE_ANON_KEY`   | anon публічний ключ                                     |
+| Secret    | `SUPABASE_ANON_KEY`   | anon/publishable key для frontend build                 |
 | Variable  | `SUPABASE_PROJECT_REF`| ref проєкту (для `supabase link`)                       |
 | Secret    | `SUPABASE_ACCESS_TOKEN`| personal access token (`supabase login --token`)       |
 | Secret    | `SUPABASE_DB_PASSWORD`| пароль БД проєкту                                       |
+| Secret    | `GOOGLE_OAUTH_CLIENT_ID`| Google OAuth Web client ID для frontend і Edge Functions |
+| Secret    | `GOOGLE_OAUTH_CLIENT_SECRET`| Google OAuth Web client secret                    |
 
 ## Supabase
 
@@ -35,10 +37,10 @@ supabase db query --linked --file supabase/seed.sql  # виконує supabase/s
 ### Edge Function
 
 ```bash
+supabase secrets set GOOGLE_OAUTH_CLIENT_ID=... \
+                     GOOGLE_OAUTH_CLIENT_SECRET=...
 supabase functions deploy upload-attachment --no-verify-jwt
-supabase secrets set GOOGLE_SERVICE_ACCOUNT_EMAIL=... \
-                     GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="$(jq -r .private_key key.json)" \
-                     GOOGLE_DRIVE_ROOT_FOLDER_ID=...
+supabase functions deploy google-oauth-callback --no-verify-jwt
 ```
 
 Деталі — [GOOGLE_DRIVE_SETUP.md](GOOGLE_DRIVE_SETUP.md).
@@ -47,10 +49,10 @@ supabase secrets set GOOGLE_SERVICE_ACCOUNT_EMAIL=... \
 
 ```bash
 npm install
-cp .env.example .env.local      # підставити VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY
+cp .env.example .env.local      # підставити VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY / VITE_GOOGLE_OAUTH_CLIENT_ID
 npm run dev                     # http://localhost:5173
 npm run build                   # збірка
 npm run preview                 # перевірка production-збірки
 ```
 
-Якщо `VITE_SUPABASE_*` порожні — додаток працює офлайн на IndexedDB (як до міграції).
+`VITE_SUPABASE_URL` і `VITE_SUPABASE_ANON_KEY` обовʼязкові: офлайн-режим вимкнено.

@@ -19,8 +19,7 @@ supabase/.branches
 # Build info
 *.tsbuildinfo
 
-# Secrets (never commit Google service-account JSON)
-**/service-account*.json
+# Secrets
 gcp-key*.json
 
 # Local secrets checklist (template-only; never commit filled-in version)

@@ -64,9 +64,12 @@ export async function getById<T extends TableName>(
   return (data ?? undefined) as Tables[T] | undefined
 }
 
-export async function insert<T extends TableName>(table: T, row: Tables[T]): Promise<Tables[T]> {
+export async function insert<T extends TableName>(
+  table: T,
+  row: Partial<Tables[T]>,
+): Promise<Tables[T]> {
   const client = requireSupabase()
-  const { data, error } = await client.from(table).insert(row).select('*').single()
+  const { data, error } = await client.from(table).insert(row as never).select('*').single()
   if (error) throw error
   return data as Tables[T]
 }
@@ -130,16 +133,4 @@ export async function getSession(): Promise<AuthSession | null> {
 export async function setSession(session: AuthSession | null) {
   if (session) window.localStorage.setItem(SESSION_KEY, JSON.stringify(session))
   else window.localStorage.removeItem(SESSION_KEY)
-}
-
-export async function nextComplaintNumber(): Promise<number> {
-  const client = requireSupabase()
-  const { data, error } = await client
-    .from('complaints')
-    .select('number')
-    .order('number', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (error) throw error
-  return Number(data?.number ?? 0) + 1
 }

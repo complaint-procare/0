@@ -21,7 +21,7 @@ const MIGRATION_SEVERITY_COLORS_KEY = '__migration__severity_colors_dark__'
 
 export async function ensureSeed() {
   if (supabaseEnabled) return
-  throw new Error('Supabase is required. Local IndexedDB seed is disabled.')
+  throw new Error('Supabase is required. Local seed is disabled.')
 
   const flag = await getSetting(SEED_FLAG_KEY)
   if (flag) {
@@ -336,7 +336,6 @@ export async function ensureSeed() {
   ]
   for (const f of fields) await insert('field_definitions', f)
 
-  await upsertSetting('drive.base_folder', { name: 'Complaints', enabled: false }, null)
   await upsertSetting(SEED_FLAG_KEY, true, null)
 }
 

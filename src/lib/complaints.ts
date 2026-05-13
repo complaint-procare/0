@@ -3,7 +3,6 @@ import {
   getById,
   insert,
   list,
-  nextComplaintNumber,
   update,
 } from './db'
 import { uploadAttachment } from './supabase'
@@ -32,11 +31,9 @@ export interface CreateComplaintInput {
 }
 
 export async function createComplaint(input: CreateComplaintInput): Promise<Complaint> {
-  const number = await nextComplaintNumber()
   const now = new Date().toISOString()
-  const complaint: Complaint = {
+  const complaint = await insert('complaints', {
     id: uuid(),
-    number,
     created_at: now,
     created_by: input.actor_id,
     manager_id: input.manager_id,
@@ -55,8 +52,7 @@ export async function createComplaint(input: CreateComplaintInput): Promise<Comp
     closed_at: null,
     updated_at: now,
     custom_fields: input.custom_fields ?? {},
-  }
-  await insert('complaints', complaint)
+  })
 
   await logEvent({
     complaint_id: complaint.id,

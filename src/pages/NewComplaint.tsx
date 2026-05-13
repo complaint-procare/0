@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, File as FileIcon, Film, Image as ImageIcon, Paperclip, Save, Trash2 } from 'lucide-react'
+import { ArrowLeft, File as FileIcon, Film, Image as ImageIcon, Paperclip, Save, Trash2, Upload } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { list } from '@/lib/db'
 import { Button, Card, Field, Input, Select, Textarea } from '@/components/ui/primitives'
@@ -241,14 +241,38 @@ export function NewComplaintPage() {
             <p className="label flex items-center gap-2">
               <Paperclip className="h-4 w-4" /> Файли (необов'язково)
             </p>
-            <Input
-              type="file"
-              multiple
-              onChange={(e) => {
-                setFiles((prev) => [...prev, ...Array.from(e.target.files ?? [])])
-                e.target.value = ''
-              }}
-            />
+            <label className="btn btn-outline w-full cursor-pointer">
+              <Upload className="h-4 w-4" />
+              {files.length ? `Додати ще (${files.length})` : 'Вибрати файли'}
+              <input
+                type="file"
+                multiple
+                className="hidden"
+                disabled={submitting}
+                onChange={(e) => {
+                  const selected = Array.from(e.target.files ?? [])
+                  if (selected.length) {
+                    setFiles((prev) => [...prev, ...selected])
+                  }
+                  e.target.value = ''
+                }}
+              />
+            </label>
+            {files.length > 0 && (
+              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span>
+                  Вибрано: {files.length}
+                </span>
+                <button
+                  type="button"
+                  className="text-destructive hover:underline"
+                  onClick={() => setFiles([])}
+                  disabled={submitting}
+                >
+                  Очистити
+                </button>
+              </div>
+            )}
             {files.length > 0 && (
               <div className="grid grid-cols-2 gap-2">
                 {files.map((f, i) => (

@@ -1,102 +1,79 @@
 # Налаштування Google Drive для медіа-вкладень
 
-Архітектура: SPA → Supabase Edge Function `upload-attachment` → Google Drive API.
-Service account має доступ до спільної папки на Drive, а ключ ніколи не потрапляє в браузер.
+Архітектура: SPA → Google OAuth → Supabase Edge Function `google-oauth-callback` → `app_secrets` → Edge Function `upload-attachment` → Google Drive API.
 
-## 1. Створити проєкт у Google Cloud
+Додаток працює від імені реального Google-користувача через OAuth refresh token і створює папку `Complaints` у його My Drive.
+
+## 1. Google Cloud
 
 1. Відкрити [Google Cloud Console](https://console.cloud.google.com/).
-2. Створити новий проєкт, напр. `complaint-procare`.
-3. У навігації **APIs & Services → Library** знайти **Google Drive API** → **Enable**.
+2. У проєкті `complaints-496120` увімкнути **Google Drive API**.
+3. Налаштувати **OAuth consent**:
+   - User type: External
+   - Publishing status для тесту: Testing
+   - Test users: додати потрібні Google-акаунти
+   - Scopes: `auth/drive.file`, `auth/userinfo.email`
 
-## 2. Створити Service Account
+## 2. OAuth Client
 
-1. **APIs & Services → Credentials → Create credentials → Service account**.
-2. Name: `complaint-uploader`. Натиснути **Create and continue**, ролі можна не додавати, **Done**.
-3. На сторінці акаунта відкрити вкладку **Keys → Add key → Create new key → JSON**.
-4. Завантажиться JSON-файл вигляду:
-   ```json
-   {
-     "client_email": "complaint-uploader@complaint-procare.iam.gserviceaccount.com",
-     "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEv...\n-----END PRIVATE KEY-----\n",
-     ...
-   }
-   ```
-   **Не комітити!** Файл уже у `.gitignore` (шаблон `**/service-account*.json`).
+Створити або перевірити OAuth Client ID типу **Web application**.
 
-## 3. Створити спільну папку на Drive
+Authorized redirect URI:
 
-1. У [Google Drive](https://drive.google.com/) створити папку, напр. `Complaints`.
-2. **Share** → додати email сервісного акаунта (`client_email` з JSON) з роллю **Editor**.
-3. Скопіювати ID папки з URL — це частина після `folders/`:
-   `https://drive.google.com/drive/folders/`**`1A2b3C4d5E6f...`**
+```text
+https://ihjvjwzomrbyitubovsg.supabase.co/functions/v1/google-oauth-callback
+```
 
-> Якщо ваш Google Workspace дозволяє Shared Drives — створіть Shared Drive і додайте
-> сервісний акаунт як **Content manager**. Тоді файли не «належать» сервісному акаунту,
-> а живуть на корпоративному диску.
+Frontend використовує тільки public client id:
 
-## 4. Прокинути секрети в Supabase
+```env
+VITE_GOOGLE_OAUTH_CLIENT_ID=000000000000-xxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com
+```
 
-Через Supabase CLI (з кореня репозиторію):
+Client secret має бути тільки в Supabase Edge Function secrets.
+
+## 3. Supabase Secrets
+
+Через Supabase CLI:
 
 ```bash
 supabase secrets set \
-  GOOGLE_SERVICE_ACCOUNT_EMAIL='complaint-uploader@complaint-procare.iam.gserviceaccount.com' \
-  GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="$(jq -r .private_key < service-account.json)" \
-  GOOGLE_DRIVE_ROOT_FOLDER_ID='1A2b3C4d5E6f...'
+  GOOGLE_OAUTH_CLIENT_ID='000000000000-xxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com' \
+  GOOGLE_OAUTH_CLIENT_SECRET='GOCSPX-...'
 ```
 
-Або вручну в **Supabase Studio → Project settings → Edge Functions → Secrets**.
+Або через GitHub Actions secrets:
 
-Перевірка:
+- `GOOGLE_OAUTH_CLIENT_ID`
+- `GOOGLE_OAUTH_CLIENT_SECRET`
+
+Workflow `.github/workflows/supabase-migrate.yml` перед деплоєм Edge Functions прокидає ці секрети в Supabase, якщо вони задані.
+
+## 4. Edge Functions
+
+Потрібні дві функції:
+
 ```bash
-supabase secrets list
-```
-
-## 5. Задеплоїти Edge Function
-
-```bash
+supabase functions deploy google-oauth-callback --no-verify-jwt
 supabase functions deploy upload-attachment --no-verify-jwt
 ```
 
-(`--no-verify-jwt`, бо функція сама перевіряє токен через `supabase.auth.getUser()`
-і додатково мапить його на `public.users.auth_id`.)
+`google-oauth-callback` приймає `code` від Google, обмінює його на токени, створює або знаходить папку `Complaints`, зберігає refresh token і root folder id у `public.app_secrets`, а публічний статус підключення у `public.app_settings`.
 
-GitHub Action `.github/workflows/supabase-migrate.yml` робить це автоматично при пуші в `main`,
-якщо налаштовано секрет `SUPABASE_ACCESS_TOKEN`.
+`upload-attachment` бере refresh token з `app_secrets`, оновлює access token, створює папку `complaint-<номер>` і завантажує файл у Drive.
 
-## 6. Як це працює у застосунку
+## 5. Як підключити Drive в UI
 
-```ts
-import { uploadAttachment } from '@/lib/supabase'
+1. Увійти в CRM як admin.
+2. Відкрити `/settings/general`.
+3. Натиснути **Підключити Google Drive**.
+4. Надати доступ у Google.
+5. Після callback сторінка має показати підключений email і папку `Complaints`.
 
-const { attachment, folder_url } = await uploadAttachment(complaintId, file)
-// attachment.drive_url — пряме посилання на файл у Drive
-// folder_url          — папка скарги (зберігається в complaints.drive_folder_url)
-```
+## 6. Чек-лист безпеки
 
-Послідовність:
-
-1. Edge function через JWT знаходить `public.users` запис.
-2. Якщо у `complaints.drive_folder_id` ще немає папки — створює `complaint-<number>`
-   усередині `GOOGLE_DRIVE_ROOT_FOLDER_ID` і записує `drive_folder_id` / `drive_folder_url`.
-3. Завантажує файл туди ж через `multipart/related`.
-4. Створює рядок у `complaint_attachments` із `drive_file_id` та `drive_url`.
-
-## 7. Резервна копія через Supabase Storage (опційно)
-
-Якщо хочете дзеркало в Supabase Storage — у функції додайте:
-```ts
-await supabase.storage
-  .from('complaint-media')
-  .upload(`${complaintId}/${uploaded.id}-${file.name}`, file)
-```
-Бакет `complaint-media` уже створений міграцією `20260512000002_storage.sql`.
-
-## 8. Чек-лист безпеки
-
-- [ ] JSON-ключ ніколи не комітиться (перевірте `git status`).
-- [ ] У браузер не йде `service_role` ключ — використовуємо лише `anon`.
-- [ ] Edge function переvirile, що `uploaded_by` = поточний `public.users.id`.
-- [ ] У Drive UI права на папку: лише service account та потрібні рев'ювери.
-- [ ] Раз на квартал ротувати приватний ключ (Keys → Add key, потім видалити старий).
+- [ ] У браузер іде тільки `VITE_GOOGLE_OAUTH_CLIENT_ID`, без client secret.
+- [ ] `GOOGLE_OAUTH_CLIENT_SECRET` заданий тільки в Supabase/GitHub secrets.
+- [ ] `public.app_secrets` не має grants для `anon` або `authenticated`.
+- [ ] `upload-attachment` перевіряє `uploaded_by` проти активного `public.users`.
+- [ ] Для production опублікувати Google OAuth app, інакше Testing refresh token може мати обмежений строк життя.

@@ -72,10 +72,3 @@ from e, (values
   ('status_id',           'Статус',             'reference', true,  true,  true,  120)
 ) as x(field_key, label, field_type, is_required, show_in_create, show_in_details, sort_order)
 on conflict (entity_id, field_key) do nothing;
-
--- ============================================================
--- App settings
--- ============================================================
-insert into public.app_settings (key, value) values
-  ('drive.base_folder', '{"name":"Complaints","enabled":false}'::jsonb)
-on conflict (key) do nothing;
