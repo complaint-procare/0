@@ -75,7 +75,11 @@ cp .env.example .env.local
 npm run dev          # http://localhost:5173
 ```
 
-PIN за замовчуванням — той, що поставили в адмінці (`/settings/users`). Для першого входу візьміть PIN з Supabase Studio → `public.users.pin_hash` (це SHA-256, не оборотно — створіть нового користувача через Supabase Studio або скрипт).
+PIN за замовчуванням — той, що поставили в адмінці (`/settings/users`). Для першого admin у порожній БД після `supabase db push` + `supabase db query --linked --file supabase/seed.sql` запустіть:
+
+```bash
+npm run create:admin -- "Admin User" 1234
+```
 
 Офлайн/IndexedDB режим вимкнено: застосунок потребує `VITE_SUPABASE_URL` і `VITE_SUPABASE_ANON_KEY`.
 
@@ -201,6 +205,7 @@ setval('public.complaint_number_seq', max(number) + 1, false)
 | `npm run preview` | Локальний preview збірки |
 | `npm run lint` | `tsc --noEmit` — тип-чек без емісії |
 | `npm run check:supabase` | Перевірка Supabase REST, основних таблиць і Edge Functions |
+| `npm run create:admin -- "Admin User" 1234` | Створити першого admin у Supabase через `.env.local` |
 | `npm run deploy:supabase` | Повний деплой: migrations + secrets + functions |
 
 ---

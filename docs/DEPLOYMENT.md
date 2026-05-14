@@ -68,3 +68,9 @@ npm run preview
 ```
 
 `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` і `VITE_GOOGLE_OAUTH_CLIENT_ID` потрібні у `.env.local`. Офлайн/IndexedDB режим вимкнено.
+
+Для першого admin у порожній БД:
+
+```bash
+npm run create:admin -- "Admin User" 1234
+```

@@ -49,7 +49,7 @@ supabase secrets set \
 
 Для frontend build той самий public client id зберігається окремо як GitHub Actions variable `GOOGLE_OAUTH_CLIENT_ID`, бо Vite вбудовує його в browser bundle як `VITE_GOOGLE_OAUTH_CLIENT_ID`.
 
-Workflow `.github/workflows/supabase-migrate.yml` перед деплоєм Edge Functions прокидає ці секрети в Supabase, якщо вони задані.
+Workflow `.github/workflows/supabase-migrate.yml` перед деплоєм Edge Functions прокидає ці секрети в Supabase і падає, якщо вони не задані.
 
 ## 4. Edge Functions
 

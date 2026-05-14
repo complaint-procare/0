@@ -30,7 +30,12 @@ const projectRef =
   env.SUPABASE_PROJECT_REF ||
   (supabaseUrl ? new URL(supabaseUrl).host.replace(/\.supabase\.co$/, '') : '')
 
-const required = ['SUPABASE_ACCESS_TOKEN', 'SUPABASE_DB_PASSWORD']
+const required = [
+  'SUPABASE_ACCESS_TOKEN',
+  'SUPABASE_DB_PASSWORD',
+  'GOOGLE_OAUTH_CLIENT_ID',
+  'GOOGLE_OAUTH_CLIENT_SECRET',
+]
 const missing = required.filter((key) => !env[key])
 
 if (!projectRef) missing.push('SUPABASE_PROJECT_REF or VITE_SUPABASE_URL')
@@ -41,6 +46,8 @@ if (missing.length) {
   console.error('Example:')
   console.error('  export SUPABASE_ACCESS_TOKEN=...')
   console.error('  export SUPABASE_DB_PASSWORD=...')
+  console.error('  export GOOGLE_OAUTH_CLIENT_ID=...')
+  console.error('  export GOOGLE_OAUTH_CLIENT_SECRET=...')
   console.error('  npm run deploy:supabase')
   process.exit(1)
 }
@@ -65,19 +72,12 @@ await run('Link Supabase project', ['link', '--project-ref', projectRef])
 await run('Push database migrations', ['db', 'push'])
 await run('Seed linked database', ['db', 'query', '--linked', '--file', 'supabase/seed.sql'])
 
-const googleOauthKeys = ['GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET']
-const oauthMissing = googleOauthKeys.filter((key) => !env[key])
-
-if (oauthMissing.length) {
-  console.warn(`\nSkipping Google OAuth secrets; missing: ${oauthMissing.join(', ')}`)
-} else {
-  await run('Set Google OAuth Edge Function secrets', [
-    'secrets',
-    'set',
-    `GOOGLE_OAUTH_CLIENT_ID=${env.GOOGLE_OAUTH_CLIENT_ID}`,
-    `GOOGLE_OAUTH_CLIENT_SECRET=${env.GOOGLE_OAUTH_CLIENT_SECRET}`,
-  ])
-}
+await run('Set Google OAuth Edge Function secrets', [
+  'secrets',
+  'set',
+  `GOOGLE_OAUTH_CLIENT_ID=${env.GOOGLE_OAUTH_CLIENT_ID}`,
+  `GOOGLE_OAUTH_CLIENT_SECRET=${env.GOOGLE_OAUTH_CLIENT_SECRET}`,
+])
 
 await run('Deploy upload-attachment Edge Function', [
   'functions',

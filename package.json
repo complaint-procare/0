@@ -9,6 +9,7 @@
     "preview": "node node_modules/vite/bin/vite.js preview",
     "lint": "node node_modules/typescript/bin/tsc --noEmit",
     "check:supabase": "node scripts/check-supabase.mjs",
+    "create:admin": "node scripts/create-admin.mjs",
     "deploy:supabase": "node scripts/deploy-supabase.mjs"
   },
   "dependencies": {

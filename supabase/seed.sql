@@ -45,7 +45,7 @@ on conflict (entity_key) do nothing;
 
 -- ============================================================
 -- Field definitions for the 'complaints' entity
--- (mirrors sysField() calls in src/lib/seed.ts)
+-- Keep this list aligned with the create/edit/detail UI fields.
 -- ============================================================
 with e as (select id from public.entity_definitions where entity_key = 'complaints')
 insert into public.field_definitions
