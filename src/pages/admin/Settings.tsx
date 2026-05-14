@@ -16,6 +16,9 @@ interface DriveConnection {
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID as string | undefined
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined
+const APP_BASE_PATH = import.meta.env.BASE_URL.startsWith('/')
+  ? import.meta.env.BASE_URL.replace(/\/$/, '')
+  : ''
 
 export function SettingsPage() {
   const toast = useToast()
@@ -54,7 +57,7 @@ export function SettingsPage() {
     const redirectUri = `${SUPABASE_URL}/functions/v1/google-oauth-callback`
     const state = btoa(
       JSON.stringify({
-        return_to: `${window.location.origin}/settings/general`,
+        return_to: `${window.location.origin}${APP_BASE_PATH}/settings/general`,
         nonce: crypto.randomUUID(),
       }),
     )

@@ -20,8 +20,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 const ROOT_FOLDER_NAME = "Complaints";
 const ALLOWED_ORIGINS = [
   "http://localhost:5173",
+  "http://localhost:4173",
   "https://complaint-procare.github.io",
 ];
+const DEFAULT_RETURN_TO = "https://complaint-procare.github.io/0/settings/general";
 
 Deno.serve(async (req) => {
   const url = new URL(req.url);
@@ -121,14 +123,13 @@ function decodeState(raw: string): { return_to?: string } {
 }
 
 function pickReturnTo(candidate?: string): string {
-  const fallback = ALLOWED_ORIGINS[0] + "/settings/general";
-  if (!candidate) return fallback;
+  if (!candidate) return DEFAULT_RETURN_TO;
   try {
     const u = new URL(candidate);
     const origin = `${u.protocol}//${u.host}`;
     if (ALLOWED_ORIGINS.includes(origin)) return candidate;
   } catch { /* ignore */ }
-  return fallback;
+  return DEFAULT_RETURN_TO;
 }
 
 function redirect(target: string, params: Record<string, string>) {

@@ -3,38 +3,48 @@
 ## GitHub Pages
 
 1. **Settings → Pages → Source: GitHub Actions.**
-2. Перший пуш у `main` запустить `.github/workflows/deploy.yml`:
-   - `npm ci && npm run build`
-   - бандлинг із `base = /<repo>/` (бере з `VITE_BASE_PATH`)
-   - копіює `index.html` → `404.html` (SPA fallback для React Router)
+2. Push у `main` запускає `.github/workflows/deploy.yml`:
+   - `npm ci`
+   - перевірка frontend env (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `GOOGLE_OAUTH_CLIENT_ID`)
+   - `npm run build`
+   - бандлинг із `base = /<repo>/` через `VITE_BASE_PATH`
+   - `scripts/create-spa-route-pages.mjs` створює `404.html` і статичні entry pages для основних React routes
    - публікує `dist/` через `actions/deploy-pages@v4`
 3. URL: `https://complaint-procare.github.io/0/`
 
-### Repo змінні / секрети (Settings → Secrets and variables → Actions)
+GitHub Pages не підтримує wildcard routes. Тому `/0/complaints`, `/0/login`, `/0/settings/users` мають статичні entry pages і повертають `200`, а динамічні прямі URL на кшталт `/0/complaints/<id>` рендеряться через `404.html` і можуть мати HTTP `404`, хоча SPA після завантаження відкриє потрібний React route.
 
-| Тип       | Імʼя                  | Значення                                                |
-|-----------|-----------------------|---------------------------------------------------------|
-| Variable  | `SUPABASE_URL`        | `https://<ref>.supabase.co`                             |
-| Secret    | `SUPABASE_ANON_KEY`   | anon/publishable key для frontend build                 |
-| Variable  | `SUPABASE_PROJECT_REF`| ref проєкту (для `supabase link`)                       |
-| Secret    | `SUPABASE_ACCESS_TOKEN`| personal access token (`supabase login --token`)       |
-| Secret    | `SUPABASE_DB_PASSWORD`| пароль БД проєкту                                       |
-| Secret    | `GOOGLE_OAUTH_CLIENT_ID`| Google OAuth Web client ID для frontend і Edge Functions |
-| Secret    | `GOOGLE_OAUTH_CLIENT_SECRET`| Google OAuth Web client secret                    |
+### Repo Variables / Secrets
+
+Settings → Secrets and variables → Actions.
+
+| Type | Name | Used for |
+|---|---|---|
+| Variable | `SUPABASE_URL` | `VITE_SUPABASE_URL` у frontend build |
+| Variable | `SUPABASE_ANON_KEY` | `VITE_SUPABASE_ANON_KEY` у frontend build |
+| Variable | `GOOGLE_OAUTH_CLIENT_ID` | `VITE_GOOGLE_OAUTH_CLIENT_ID` у frontend build |
+| Variable | `SUPABASE_PROJECT_REF` | `supabase link` |
+| Secret | `SUPABASE_ACCESS_TOKEN` | Supabase CLI deploy |
+| Secret | `SUPABASE_DB_PASSWORD` | `supabase db push` |
+| Secret | `GOOGLE_OAUTH_CLIENT_ID` | Edge Function OAuth client id |
+| Secret | `GOOGLE_OAUTH_CLIENT_SECRET` | Edge Function OAuth client secret |
+
+`SUPABASE_ANON_KEY` і Google OAuth client id не є service-role secrets: вони потрапляють у browser bundle як `VITE_*`, тому для frontend workflow вони зберігаються як repo variables. Edge Function client secret залишається тільки у GitHub/Supabase secrets.
 
 ## Supabase
 
 Локально:
+
 ```bash
 supabase login
 supabase link --project-ref <ref>
-supabase db push       # застосовує міграції з supabase/migrations/
-supabase db query --linked --file supabase/seed.sql  # виконує supabase/seed.sql (опційно)
+supabase db push
+supabase db query --linked --file supabase/seed.sql
 ```
 
-В CI це робить `.github/workflows/supabase-migrate.yml` при змінах у `supabase/`.
+У CI це робить `.github/workflows/supabase-migrate.yml` при змінах у `supabase/`.
 
-### Edge Function
+### Edge Functions
 
 ```bash
 supabase secrets set GOOGLE_OAUTH_CLIENT_ID=... \
@@ -43,16 +53,18 @@ supabase functions deploy upload-attachment --no-verify-jwt
 supabase functions deploy google-oauth-callback --no-verify-jwt
 ```
 
-Деталі — [GOOGLE_DRIVE_SETUP.md](GOOGLE_DRIVE_SETUP.md).
+`GOOGLE_OAUTH_CLIENT_ID` і `GOOGLE_OAUTH_CLIENT_SECRET` обов’язкові для Edge Functions. CI падає, якщо вони не задані, щоб не деплоїти uploads/OAuth у напівзламаному стані.
+
+Деталі: [GOOGLE_DRIVE_SETUP.md](GOOGLE_DRIVE_SETUP.md).
 
 ## Локально
 
 ```bash
 npm install
-cp .env.example .env.local      # підставити VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY / VITE_GOOGLE_OAUTH_CLIENT_ID
-npm run dev                     # http://localhost:5173
-npm run build                   # збірка
-npm run preview                 # перевірка production-збірки
+cp .env.example .env.local
+npm run dev       # http://localhost:5173
+npm run build
+npm run preview
 ```
 
-`VITE_SUPABASE_URL` і `VITE_SUPABASE_ANON_KEY` обовʼязкові: офлайн-режим вимкнено.
+`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` і `VITE_GOOGLE_OAUTH_CLIENT_ID` потрібні у `.env.local`. Офлайн/IndexedDB режим вимкнено.

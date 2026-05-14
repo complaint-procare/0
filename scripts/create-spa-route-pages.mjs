@@ -4,6 +4,8 @@ import path from 'node:path'
 const distDir = path.resolve('dist')
 const indexPath = path.join(distDir, 'index.html')
 
+// GitHub Pages serves static files only. These routes get real entry pages so
+// direct navigation returns 200; dynamic routes still fall back to 404.html.
 const routes = [
   'login',
   'complaints',
