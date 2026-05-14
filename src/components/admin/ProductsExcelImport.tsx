@@ -153,7 +153,7 @@ export function ProductsExcelImport() {
         const productDraft = {
           brand_id: brandId,
           name: r.name,
-          sku: r.sku || undefined,
+          sku: r.sku || null,
           is_active: true,
           created_at: now(),
         }
@@ -164,7 +164,7 @@ export function ProductsExcelImport() {
           await update('products', existingProduct.id, {
             brand_id: brandId,
             name: r.name,
-            sku: r.sku || undefined,
+            sku: r.sku || null,
             is_active: true,
           })
           touchedProductIds.add(existingProduct.id)

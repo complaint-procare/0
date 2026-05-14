@@ -300,8 +300,8 @@ function EditForm({
     product_barcode: complaint.product_barcode ?? '',
     batch_number: complaint.batch_number,
     problem_description: complaint.problem_description,
-    severity_id: complaint.severity_id,
-    status_id: complaint.status_id,
+    severity_id: complaint.severity_id ?? '',
+    status_id: complaint.status_id ?? '',
     manager_id: complaint.manager_id,
   })
   const [saving, setSaving] = useState(false)
@@ -681,7 +681,7 @@ function ChangeLogCard({
             <li key={e.id} className="border-l-2 border-border pl-3">
               <p className="font-medium">{describeEvent(e)}</p>
               <p className="text-muted-foreground">
-                {userMap.get(e.actor_id) ?? '—'} · {formatDate(e.created_at)}
+                {(e.actor_id ? userMap.get(e.actor_id) : null) ?? '—'} · {formatDate(e.created_at)}
               </p>
               {(e.old_value !== null || e.new_value !== null) && e.field_name && (
                 <p className="mt-1 break-words text-muted-foreground">

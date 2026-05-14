@@ -10,6 +10,7 @@ export const ROLE_LABELS: Record<Role, string> = {
 
 export interface User {
   id: string
+  auth_id: string | null
   full_name: string
   role: Role
   pin_hash: string
@@ -29,7 +30,7 @@ export interface Product {
   id: string
   brand_id: string | null
   name: string
-  sku?: string
+  sku: string | null
   is_active: boolean
   created_at: string
 }
@@ -44,10 +45,10 @@ export interface RetailNetwork {
 export interface Client {
   id: string
   name: string
-  contact_person?: string
-  phone?: string
-  email?: string
-  notes?: string
+  contact_person: string | null
+  phone: string | null
+  email: string | null
+  notes: string | null
   is_active: boolean
   created_at: string
 }
@@ -141,8 +142,8 @@ export interface Complaint {
   product_barcode: string
   batch_number: string
   problem_description: string
-  severity_id: string
-  status_id: string
+  severity_id: string | null
+  status_id: string | null
   drive_folder_id?: string | null
   drive_folder_url?: string | null
   closed_at?: string | null
@@ -158,7 +159,7 @@ export interface ComplaintAttachment {
   file_name: string
   mime_type: string
   file_size: number
-  uploaded_by: string
+  uploaded_by: string | null
   is_deleted: boolean
   created_at: string
   deleted_at?: string | null
@@ -176,7 +177,7 @@ export type ChangeLogEventType =
 export interface ComplaintChangeLog {
   id: string
   complaint_id: string
-  actor_id: string
+  actor_id: string | null
   event_type: ChangeLogEventType
   field_name: string | null
   old_value: unknown

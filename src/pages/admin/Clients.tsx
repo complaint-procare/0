@@ -16,6 +16,10 @@ export function ClientsPage() {
       ]}
       defaultRow={() => ({
         name: '',
+        contact_person: null,
+        phone: null,
+        email: null,
+        notes: null,
         is_active: true,
         created_at: new Date().toISOString(),
       })}

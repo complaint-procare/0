@@ -69,8 +69,8 @@ export function AnalyticsPage() {
     return data.complaints.filter((c) => {
       if (filters.brandIds.length && !filters.brandIds.includes(c.brand_id ?? '')) return false
       if (filters.productNames.length && !filters.productNames.includes(c.product_name)) return false
-      if (filters.statusIds.length && !filters.statusIds.includes(c.status_id)) return false
-      if (filters.severityIds.length && !filters.severityIds.includes(c.severity_id)) return false
+      if (filters.statusIds.length && !filters.statusIds.includes(c.status_id ?? '')) return false
+      if (filters.severityIds.length && !filters.severityIds.includes(c.severity_id ?? '')) return false
       if (
         filters.networkIds.length &&
         !filters.networkIds.includes(c.retail_network_id ?? '')
@@ -410,7 +410,7 @@ function computeStats(complaints: Complaint[], statuses: ComplaintStatus[]) {
   const total = complaints.length
   const open = complaints.filter((c) => c.status_id === openName).length
   const inProgress = complaints.filter((c) => c.status_id === inProgressName).length
-  const closed = complaints.filter((c) => closedIds.has(c.status_id)).length
+  const closed = complaints.filter((c) => closedIds.has(c.status_id ?? '')).length
 
   const now = Date.now()
   const week = 7 * 24 * 60 * 60 * 1000
@@ -437,8 +437,8 @@ function computeStats(complaints: Complaint[], statuses: ComplaintStatus[]) {
       prev7.filter((c) => c.status_id === inProgressName).length,
     ),
     deltaClosed: delta(
-      last7.filter((c) => closedIds.has(c.status_id)).length,
-      prev7.filter((c) => closedIds.has(c.status_id)).length,
+      last7.filter((c) => closedIds.has(c.status_id ?? '')).length,
+      prev7.filter((c) => closedIds.has(c.status_id ?? '')).length,
     ),
   }
 }

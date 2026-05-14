@@ -29,15 +29,21 @@ export function LoginPage() {
   const submit = async (full: string) => {
     setLoading(true)
     setError(null)
-    const res = await signIn(full)
-    setLoading(false)
-    if (!res.ok) {
+    try {
+      const res = await signIn(full)
+      if (res.ok) {
+        nav('/complaints', { replace: true })
+        return
+      }
       setError(res.error)
-      setPin(['', '', '', ''])
-      refs[0].current?.focus()
-    } else {
-      nav('/complaints', { replace: true })
+    } catch (err) {
+      setError((err as Error).message || 'Не вдалося увійти. Перевірте підключення до Supabase.')
+    } finally {
+      setLoading(false)
     }
+
+    setPin(['', '', '', ''])
+    refs[0].current?.focus()
   }
 
   const setDigit = (i: number, v: string) => {

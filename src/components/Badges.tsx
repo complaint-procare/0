@@ -23,7 +23,7 @@ export function StatusBadge({
   statuses,
   className,
 }: {
-  id: string
+  id: string | null | undefined
   statuses: ComplaintStatus[]
   className?: string
 }) {
@@ -43,7 +43,7 @@ export function SeverityBadge({
   levels,
   className,
 }: {
-  id: string
+  id: string | null | undefined
   levels: SeverityLevel[]
   className?: string
 }) {
