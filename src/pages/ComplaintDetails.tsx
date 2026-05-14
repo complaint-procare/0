@@ -11,12 +11,13 @@ import {
   Image as ImageIcon,
   Paperclip,
   Pencil,
+  RefreshCw,
   Save,
   Trash2,
   Upload,
   X,
 } from 'lucide-react'
-import { getById, list } from '@/lib/db'
+import { getById, list, update } from '@/lib/db'
 import { Button, Card, Field, Input, Select, Textarea } from '@/components/ui/primitives'
 import { Autocomplete } from '@/components/ui/autocomplete'
 import { SourcePicker } from '@/components/ui/source-picker'
@@ -52,11 +53,13 @@ import type {
 export function ComplaintDetailsPage() {
   const { id } = useParams<{ id: string }>()
   const nav = useNavigate()
-  const { session } = useAuth()
+  const { session, isAdmin } = useAuth()
   const toast = useToast()
   const qc = useQueryClient()
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<ComplaintAttachment | null>(null)
+  const [confirmTouch, setConfirmTouch] = useState(false)
+  const [touchingComplaint, setTouchingComplaint] = useState(false)
 
   const { data, refetch, isLoading } = useQuery({
     queryKey: ['complaint', id],
@@ -110,6 +113,17 @@ export function ComplaintDetailsPage() {
         <div className="flex items-center gap-2">
           <StatusBadge id={c.status_id} statuses={data.statuses} />
           <SeverityBadge id={c.severity_id} levels={data.severities} />
+          {isAdmin && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmTouch(true)}
+              disabled={touchingComplaint}
+              title="Повторити UPDATE для зовнішньої обробки"
+            >
+              <RefreshCw className="h-4 w-4" /> Оновити
+            </Button>
+          )}
           {isClosed ? (
             <Button
               variant="outline"
@@ -231,6 +245,27 @@ export function ComplaintDetailsPage() {
         description={`«${confirmDelete?.file_name}» буде видалено з додатку та сховища. Дію не можна скасувати.`}
         confirmLabel="Видалити"
         destructive
+      />
+      <ConfirmDialog
+        open={confirmTouch}
+        onClose={() => setConfirmTouch(false)}
+        onConfirm={async () => {
+          if (!isAdmin) return
+          setTouchingComplaint(true)
+          try {
+            await update('complaints', c.id, { updated_at: new Date().toISOString() })
+            await refetch()
+            await qc.invalidateQueries({ queryKey: ['complaints-page'] })
+            toast.show('Скаргу оновлено для повторної обробки', 'success')
+          } catch (e) {
+            toast.show((e as Error).message, 'error')
+          } finally {
+            setTouchingComplaint(false)
+          }
+        }}
+        title="Оновити скаргу?"
+        description={`Буде виконано тільки UPDATE скарги #${padComplaintNumber(c.number)}. Це потрібно для повторної обробки зовнішнім n8n.`}
+        confirmLabel="Оновити"
       />
     </div>
   )
