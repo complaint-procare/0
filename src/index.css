@@ -36,41 +36,42 @@
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-150 disabled:pointer-events-none disabled:opacity-40;
   }
-  .btn-primary {
-    background-color: hsl(0 0% 8%);
-    color: hsl(0 0% 100%);
-  }
-  .btn-primary:not(:disabled):hover {
-    background-color: hsl(0 0% 16%);
-  }
-  .btn-primary:not(:disabled):active {
-    transform: scale(0.98);
-  }
+  .btn-primary,
   .btn-outline {
     border: 1px solid hsl(30 8% 88%);
     background-color: hsl(0 0% 100%);
     color: hsl(0 0% 10%);
   }
+  .btn-primary:not(:disabled):hover,
   .btn-outline:not(:disabled):hover {
     background-color: hsl(40 10% 97%);
   }
+  .btn-primary:not(:disabled):active,
   .btn-outline:not(:disabled):active {
     transform: scale(0.98);
   }
   .btn-ghost {
+    border: 1px solid hsl(30 8% 88%);
+    background-color: hsl(0 0% 100%);
     color: hsl(0 0% 35%);
-    background-color: transparent;
   }
   .btn-ghost:not(:disabled):hover {
-    background-color: hsl(40 10% 93%);
+    background-color: hsl(40 10% 97%);
     color: hsl(0 0% 10%);
   }
+  .btn-ghost:not(:disabled):active {
+    transform: scale(0.98);
+  }
   .btn-destructive {
-    background-color: hsl(355 70% 55%);
-    color: hsl(0 0% 100%);
+    border: 1px solid hsl(355 65% 78%);
+    background-color: hsl(0 0% 100%);
+    color: hsl(355 70% 42%);
   }
   .btn-destructive:not(:disabled):hover {
-    filter: brightness(0.95);
+    background-color: hsl(355 75% 97%);
+  }
+  .btn-destructive:not(:disabled):active {
+    transform: scale(0.98);
   }
   .btn-sm {
     @apply px-3 py-1.5 text-xs;
