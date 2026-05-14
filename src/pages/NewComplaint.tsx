@@ -50,6 +50,15 @@ export function NewComplaintPage() {
 
   if (!data) return <div className="p-6 text-sm text-muted-foreground">Завантаження…</div>
 
+  const productOptions = data.products
+    .filter((p) => p.is_active && (!form.brand_id || p.brand_id === form.brand_id))
+    .map((p) => ({
+      key: p.id,
+      label: p.name,
+      hint: p.sku ?? undefined,
+      value: p,
+    }))
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!session) return
@@ -64,8 +73,8 @@ export function NewComplaintPage() {
     if (
       !form.brand_id ||
       !form.product_name.trim() ||
-      !form.batch_number ||
-      !form.problem_description ||
+      !form.batch_number.trim() ||
+      !form.problem_description.trim() ||
       !form.severity_id ||
       !form.status_id
     ) {
@@ -89,8 +98,8 @@ export function NewComplaintPage() {
         brand_id: form.brand_id,
         product_name: form.product_name.trim(),
         product_barcode: form.product_barcode.trim(),
-        batch_number: form.batch_number,
-        problem_description: form.problem_description,
+        batch_number: form.batch_number.trim(),
+        problem_description: form.problem_description.trim(),
         severity_id: form.severity_id,
         status_id: form.status_id,
         files,
@@ -143,14 +152,7 @@ export function NewComplaintPage() {
                     brand_id: opt.value.brand_id ?? f.brand_id,
                   }))
                 }}
-                options={data.products
-                  .filter((p) => p.is_active)
-                  .map((p) => ({
-                    key: p.id,
-                    label: p.name,
-                    hint: p.sku ?? undefined,
-                    value: p,
-                  }))}
+                options={productOptions}
                 placeholder="Почніть вводити, напр., кавовий скраб"
                 emptyHint="Збігів немає — назва введеться як є"
               />

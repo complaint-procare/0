@@ -340,6 +340,14 @@ function EditForm({
     manager_id: complaint.manager_id,
   })
   const [saving, setSaving] = useState(false)
+  const productOptions = data.products
+    .filter((p) => p.is_active && (!form.brand_id || p.brand_id === form.brand_id))
+    .map((p) => ({
+      key: p.id,
+      label: p.name,
+      hint: p.sku ?? undefined,
+      value: p,
+    }))
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -352,8 +360,15 @@ function EditForm({
       toast.show('Телефон має містити 9 цифр після +380', 'error')
       return
     }
-    if (!form.product_name.trim()) {
-      toast.show('Вкажіть назву продукту', 'error')
+    if (
+      !form.brand_id ||
+      !form.product_name.trim() ||
+      !form.batch_number.trim() ||
+      !form.problem_description.trim() ||
+      !form.severity_id ||
+      !form.status_id
+    ) {
+      toast.show('Заповніть усі обовʼязкові поля', 'error')
       return
     }
     setSaving(true)
@@ -369,8 +384,8 @@ function EditForm({
           brand_id: form.brand_id || null,
           product_name: form.product_name.trim(),
           product_barcode: form.product_barcode.trim(),
-          batch_number: form.batch_number,
-          problem_description: form.problem_description,
+          batch_number: form.batch_number.trim(),
+          problem_description: form.problem_description.trim(),
           severity_id: form.severity_id,
           status_id: form.status_id,
           manager_id: form.manager_id,
@@ -422,14 +437,7 @@ function EditForm({
                   brand_id: opt.value.brand_id ?? f.brand_id,
                 }))
               }}
-              options={data.products
-                .filter((p) => p.is_active)
-                .map((p) => ({
-                  key: p.id,
-                  label: p.name,
-                  hint: p.sku ?? undefined,
-                  value: p,
-                }))}
+              options={productOptions}
               placeholder="Почніть вводити, напр., кавовий скраб"
             />
           </Field>
