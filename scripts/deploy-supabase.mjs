@@ -25,7 +25,7 @@ function readEnvFile(filePath) {
 const localEnv = readEnvFile(path.join(root, '.env.local'))
 const env = { ...localEnv, ...process.env }
 
-const supabaseUrl = env.SUPABASE_URL || localEnv.VITE_SUPABASE_URL
+const supabaseUrl = env.SUPABASE_URL || env.VITE_SUPABASE_URL
 const projectRef =
   env.SUPABASE_PROJECT_REF ||
   (supabaseUrl ? new URL(supabaseUrl).host.replace(/\.supabase\.co$/, '') : '')
@@ -44,6 +44,7 @@ if (missing.length) {
   console.error(`Missing required environment values: ${missing.join(', ')}`)
   console.error('')
   console.error('Example:')
+  console.error('  export SUPABASE_PROJECT_REF=...')
   console.error('  export SUPABASE_ACCESS_TOKEN=...')
   console.error('  export SUPABASE_DB_PASSWORD=...')
   console.error('  export GOOGLE_OAUTH_CLIENT_ID=...')

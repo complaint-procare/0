@@ -9,6 +9,18 @@ const base = process.env.VITE_BASE_PATH ?? './'
 export default defineConfig({
   plugins: [react()],
   base,
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          supabase: ['@supabase/supabase-js'],
+          tanstack: ['@tanstack/react-query', '@tanstack/react-table'],
+          xlsx: ['xlsx'],
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
