@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, File as FileIcon, Film, Image as ImageIcon, Paperclip, Save, Trash2, Upload } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
-import { list } from '@/lib/db'
+import { insert, list } from '@/lib/db'
 import { Button, Card, Field, Input, Select, Textarea } from '@/components/ui/primitives'
 import { Autocomplete } from '@/components/ui/autocomplete'
 import { SourcePicker } from '@/components/ui/source-picker'
@@ -36,6 +36,7 @@ export function NewComplaintPage() {
   const [form, setForm] = useState({
     source_type: 'network' as 'network' | 'client',
     retail_network_id: '',
+    retail_network_name: '',
     phone_suffix: '',
     brand_id: '',
     product_name: '',
@@ -62,8 +63,9 @@ export function NewComplaintPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!session) return
-    if (form.source_type === 'network' && !form.retail_network_id) {
-      toast.show('Оберіть торгову мережу', 'error')
+    const retailNetworkName = normalizeRetailNetworkName(form.retail_network_name)
+    if (form.source_type === 'network' && !retailNetworkName) {
+      toast.show('Вкажіть торгову мережу', 'error')
       return
     }
     if (form.source_type === 'client' && !isValidUaPhone(form.phone_suffix)) {
@@ -89,11 +91,15 @@ export function NewComplaintPage() {
         toast.show('Сесію не знайдено в Supabase. Вийдіть і увійдіть знову.', 'error')
         return
       }
+      const retailNetworkId =
+        form.source_type === 'network'
+          ? await ensureRetailNetworkId(retailNetworkName, data.networks)
+          : null
       const c = await createComplaint({
         actor_id: actor.id,
         manager_id: actor.id,
         source_type: form.source_type,
-        retail_network_id: form.retail_network_id,
+        retail_network_id: retailNetworkId,
         client_phone: fullPhone(form.phone_suffix),
         brand_id: form.brand_id,
         product_name: form.product_name.trim(),
@@ -105,6 +111,7 @@ export function NewComplaintPage() {
         files,
       })
       await qc.invalidateQueries({ queryKey: ['complaints-page'] })
+      await qc.invalidateQueries({ queryKey: ['lookup-data'] })
       toast.show('Скаргу створено', 'success')
       nav(`/complaints/${c.id}`)
     } catch (err) {
@@ -133,6 +140,10 @@ export function NewComplaintPage() {
               onSourceTypeChange={(t) => setForm((f) => ({ ...f, source_type: t }))}
               networkId={form.retail_network_id}
               onNetworkIdChange={(id) => setForm((f) => ({ ...f, retail_network_id: id }))}
+              networkName={form.retail_network_name}
+              onNetworkNameChange={(name) =>
+                setForm((f) => ({ ...f, retail_network_name: name }))
+              }
               phoneSuffix={form.phone_suffix}
               onPhoneSuffixChange={(s) => setForm((f) => ({ ...f, phone_suffix: s }))}
               networks={data.networks}
@@ -294,6 +305,27 @@ export function NewComplaintPage() {
       </form>
     </div>
   )
+}
+
+function normalizeRetailNetworkName(value: string): string {
+  return value.trim().replace(/\s+/g, ' ')
+}
+
+async function ensureRetailNetworkId(
+  name: string,
+  networks: { id: string; name: string }[],
+): Promise<string> {
+  const normalized = normalizeRetailNetworkName(name)
+  const existing = networks.find(
+    (network) => normalizeRetailNetworkName(network.name).toLowerCase() === normalized.toLowerCase(),
+  )
+  if (existing) return existing.id
+
+  const created = await insert('retail_networks', {
+    name: normalized,
+    is_active: true,
+  })
+  return created.id
 }
 
 function LocalPreviewTile({ file, onRemove }: { file: File; onRemove: () => void }) {

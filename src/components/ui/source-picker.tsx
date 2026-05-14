@@ -1,15 +1,18 @@
 import { cn } from '@/lib/utils'
 import { Field, Input, Select } from './primitives'
 import { normalizePhoneSuffix } from '@/lib/utils'
+import { Autocomplete } from './autocomplete'
 
 export interface SourcePickerProps {
   sourceType: 'network' | 'client'
   onSourceTypeChange: (next: 'network' | 'client') => void
   networkId: string
   onNetworkIdChange: (id: string) => void
+  networkName?: string
+  onNetworkNameChange?: (name: string) => void
   phoneSuffix: string
   onPhoneSuffixChange: (suffix: string) => void
-  networks: { id: string; name: string }[]
+  networks: { id: string; name: string; is_active?: boolean }[]
   required?: boolean
 }
 
@@ -18,11 +21,23 @@ export function SourcePicker({
   onSourceTypeChange,
   networkId,
   onNetworkIdChange,
+  networkName,
+  onNetworkNameChange,
   phoneSuffix,
   onPhoneSuffixChange,
   networks,
   required,
 }: SourcePickerProps) {
+  const selectedNetwork = networks.find((n) => n.id === networkId)
+  const networkValue = networkName ?? selectedNetwork?.name ?? ''
+  const networkOptions = networks
+    .filter((n) => n.is_active !== false)
+    .map((n) => ({
+      key: n.id,
+      label: n.name,
+      value: n,
+    }))
+
   return (
     <div className="space-y-2">
       <div className="inline-flex rounded-lg border border-border bg-muted p-0.5 text-sm">
@@ -53,14 +68,31 @@ export function SourcePicker({
       </div>
       {sourceType === 'network' ? (
         <Field label="Торгова мережа" required={required}>
-          <Select value={networkId} onChange={(e) => onNetworkIdChange(e.target.value)}>
-            <option value="">Оберіть…</option>
-            {networks.map((n) => (
-              <option key={n.id} value={n.id}>
-                {n.name}
-              </option>
-            ))}
-          </Select>
+          {onNetworkNameChange ? (
+            <Autocomplete
+              value={networkValue}
+              onChange={(value) => {
+                onNetworkNameChange(value)
+                onNetworkIdChange('')
+              }}
+              onSelect={(option) => {
+                onNetworkNameChange(option.value.name)
+                onNetworkIdChange(option.value.id)
+              }}
+              options={networkOptions}
+              placeholder="Почніть вводити, напр., EVA"
+              emptyHint="Нову мережу буде додано після збереження скарги"
+            />
+          ) : (
+            <Select value={networkId} onChange={(e) => onNetworkIdChange(e.target.value)}>
+              <option value="">Оберіть…</option>
+              {networks.map((n) => (
+                <option key={n.id} value={n.id}>
+                  {n.name}
+                </option>
+              ))}
+            </Select>
+          )}
         </Field>
       ) : (
         <Field label="Телефон клієнта" required={required} hint="9 цифр після +380">
