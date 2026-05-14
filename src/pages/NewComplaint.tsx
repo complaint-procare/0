@@ -163,7 +163,6 @@ export function NewComplaintPage() {
                 }
                 inputMode="numeric"
                 placeholder="Напр., 4820123456789"
-                className="font-mono"
               />
             </Field>
             <Field label="Бренд" required>
