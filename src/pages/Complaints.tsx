@@ -650,7 +650,8 @@ function FilterRow({
               </option>
             ))}
           </Select>
-          <div className="min-w-0 overflow-hidden">
+          <div className="min-w-0 space-y-1.5 overflow-hidden">
+            <label className="block text-xs font-medium text-muted-foreground">Дата від</label>
             <Input
               type="date"
               className="w-full min-w-0 max-w-full"
@@ -659,7 +660,8 @@ function FilterRow({
               onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))}
             />
           </div>
-          <div className="min-w-0 overflow-hidden">
+          <div className="min-w-0 space-y-1.5 overflow-hidden">
+            <label className="block text-xs font-medium text-muted-foreground">Дата до</label>
             <Input
               type="date"
               className="w-full min-w-0 max-w-full"
