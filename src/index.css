@@ -77,13 +77,23 @@
     @apply px-3 py-1.5 text-xs;
   }
   .input {
-    @apply flex h-9 w-full min-w-0 max-w-full rounded-lg px-3 py-1 text-sm transition-colors
+    @apply block h-9 w-full min-w-0 max-w-full rounded-lg px-3 py-1 text-sm transition-colors
       focus-visible:outline-none focus-visible:ring-2
       disabled:cursor-not-allowed disabled:opacity-40;
     border: 1px solid hsl(30 8% 88%);
     background-color: hsl(0 0% 100%);
     color: hsl(0 0% 10%);
     --tw-ring-color: hsl(0 0% 60% / 0.25);
+  }
+  .input[type='date'] {
+    box-sizing: border-box;
+    min-inline-size: 0;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .input[type='date']::-webkit-date-and-time-value,
+  .input[type='date']::-webkit-datetime-edit {
+    min-width: 0;
   }
   .input::placeholder {
     color: hsl(0 0% 60%);

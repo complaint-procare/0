@@ -650,20 +650,24 @@ function FilterRow({
               </option>
             ))}
           </Select>
-          <Input
-            type="date"
-            className="min-w-0 max-w-full"
-            aria-label="Дата від"
-            value={filters.from}
-            onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))}
-          />
-          <Input
-            type="date"
-            className="min-w-0 max-w-full"
-            aria-label="Дата до"
-            value={filters.to}
-            onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))}
-          />
+          <div className="min-w-0 overflow-hidden">
+            <Input
+              type="date"
+              className="w-full min-w-0 max-w-full"
+              aria-label="Дата від"
+              value={filters.from}
+              onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))}
+            />
+          </div>
+          <div className="min-w-0 overflow-hidden">
+            <Input
+              type="date"
+              className="w-full min-w-0 max-w-full"
+              aria-label="Дата до"
+              value={filters.to}
+              onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))}
+            />
+          </div>
         </div>
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="outline" onClick={() => setOpen(false)}>
