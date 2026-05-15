@@ -36,6 +36,8 @@ const EMPTY: Filters = {
   search: '',
 }
 
+const PAGE_SIZE = 50
+
 type RegistryField = Pick<FieldDefinition, 'field_key' | 'label' | 'field_type' | 'sort_order'>
 type LookupCollection = { id: string; name?: string; full_name?: string }[]
 type LookupById = (collection: LookupCollection, id: string | null) => string
@@ -75,6 +77,7 @@ export function ComplaintsPage() {
   const [statusModal, setStatusModal] = useState<Complaint | null>(null)
   const [deleteModal, setDeleteModal] = useState<Complaint | null>(null)
   const [columnsOpen, setColumnsOpen] = useState(false)
+  const [page, setPage] = useState(1)
 
   const { data, refetch, isLoading } = useQuery({
     queryKey: ['complaints-page'],
@@ -155,6 +158,19 @@ export function ComplaintsPage() {
   }
 
   const activeFilterCount = Object.values(filters).filter((v) => v && v.length).length
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const visibleComplaints = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE
+    return filtered.slice(start, start + PAGE_SIZE)
+  }, [filtered, page])
+
+  useEffect(() => {
+    setPage(1)
+  }, [filters])
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, pageCount))
+  }, [pageCount])
 
   const deleteComplaint = async (complaint: Complaint) => {
     try {
@@ -239,7 +255,7 @@ export function ComplaintsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((c) => (
+                  {visibleComplaints.map((c) => (
                     <tr key={c.id} className="border-b border-border last:border-0 hover:bg-muted/40">
                       {registryFields.map((field) => (
                         <td
@@ -294,7 +310,7 @@ export function ComplaintsPage() {
       {/* Mobile cards */}
       {filtered.length > 0 && (
         <div className="grid gap-3 md:hidden">
-          {filtered.map((c) => (
+          {visibleComplaints.map((c) => (
             <Card key={c.id} className="space-y-2">
               <div className="grid grid-cols-2 gap-1 text-xs">
                 {registryFields.map((field) => (
@@ -333,6 +349,16 @@ export function ComplaintsPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      {filtered.length > PAGE_SIZE && (
+        <PaginationControls
+          page={page}
+          pageCount={pageCount}
+          total={filtered.length}
+          pageSize={PAGE_SIZE}
+          onPageChange={setPage}
+        />
       )}
 
       <StatusChangeDialog
@@ -478,6 +504,56 @@ function formatRegistryValue(value: unknown, type: FieldDefinition['field_type']
   return String(value)
 }
 
+function PaginationControls({
+  page,
+  pageCount,
+  total,
+  pageSize,
+  onPageChange,
+}: {
+  page: number
+  pageCount: number
+  total: number
+  pageSize: number
+  onPageChange: (page: number) => void
+}) {
+  const first = (page - 1) * pageSize + 1
+  const last = Math.min(page * pageSize, total)
+
+  return (
+    <div className="flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+      <span>
+        Показано {first}-{last} з {total}
+      </span>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={page === 1}
+          onClick={() => onPageChange(Math.max(1, page - 1))}
+          aria-label="Попередня сторінка"
+          title="Попередня сторінка"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+        </Button>
+        <span className="min-w-24 text-center">
+          Сторінка {page} з {pageCount}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={page === pageCount}
+          onClick={() => onPageChange(Math.min(pageCount, page + 1))}
+          aria-label="Наступна сторінка"
+          title="Наступна сторінка"
+        >
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 function FilterRow({
   filters,
   setFilters,
@@ -503,7 +579,7 @@ function FilterRow({
         <Filter className="h-3.5 w-3.5" /> Фільтри
       </Button>
       <Dialog open={open} onClose={() => setOpen(false)} title="Фільтри" size="lg">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
           <Select
             value={filters.statusId}
             onChange={(e) => setFilters((f) => ({ ...f, statusId: e.target.value }))}
@@ -576,11 +652,15 @@ function FilterRow({
           </Select>
           <Input
             type="date"
+            className="min-w-0 max-w-full"
+            aria-label="Дата від"
             value={filters.from}
             onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))}
           />
           <Input
             type="date"
+            className="min-w-0 max-w-full"
+            aria-label="Дата до"
             value={filters.to}
             onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))}
           />
