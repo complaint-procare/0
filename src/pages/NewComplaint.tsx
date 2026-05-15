@@ -59,6 +59,9 @@ export function NewComplaintPage() {
       hint: p.sku ?? undefined,
       value: p,
     }))
+  const productEmptyHint = form.brand_id
+    ? 'Для вибраного бренду товарів не знайдено — назва введеться як є'
+    : 'Збігів немає — назва введеться як є'
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -165,7 +168,7 @@ export function NewComplaintPage() {
                 }}
                 options={productOptions}
                 placeholder="Почніть вводити, напр., кавовий скраб"
-                emptyHint="Збігів немає — назва введеться як є"
+                emptyHint={productEmptyHint}
               />
             </Field>
             <Field label="Штрихкод">
@@ -181,7 +184,24 @@ export function NewComplaintPage() {
             <Field label="Бренд" required>
               <Select
                 value={form.brand_id}
-                onChange={(e) => setForm((f) => ({ ...f, brand_id: e.target.value }))}
+                onChange={(e) => {
+                  const brandId = e.target.value
+                  setForm((f) => {
+                    const catalogProduct = data.products.find(
+                      (p) =>
+                        p.is_active &&
+                        ((f.product_barcode && p.sku === f.product_barcode) ||
+                          p.name === f.product_name),
+                    )
+                    const keepProduct = !catalogProduct || !brandId || catalogProduct.brand_id === brandId
+                    return {
+                      ...f,
+                      brand_id: brandId,
+                      product_name: keepProduct ? f.product_name : '',
+                      product_barcode: keepProduct ? f.product_barcode : '',
+                    }
+                  })
+                }}
               >
                 <option value="">Оберіть…</option>
                 {data.brands.map((b) => (
