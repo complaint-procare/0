@@ -151,6 +151,17 @@ export interface Complaint {
   custom_fields: Record<string, unknown>
 }
 
+export interface ComplaintSummaryRow {
+  complaint_id: string
+  complaint_number: number
+  complaint_created_at: string
+  created_by_id: string
+  created_by_name: string
+  product_name: string
+  description: string
+  synced_at: string
+}
+
 export interface ComplaintAttachment {
   id: string
   complaint_id: string
