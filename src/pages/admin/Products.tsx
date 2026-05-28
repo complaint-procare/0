@@ -24,8 +24,20 @@ export function ProductsPage() {
       columns={[
         { key: 'name', label: 'Назва' },
         { key: 'sku', label: 'SKU', className: 'font-mono text-xs' },
-        { key: 'brand_id', label: 'Бренд', render: (r) => brandName(r.brand_id) },
-        { key: 'is_active', label: 'Активний', render: (r) => (r.is_active ? 'Так' : 'Ні') },
+        {
+          key: 'brand_id',
+          label: 'Бренд',
+          render: (r) => brandName(r.brand_id),
+          searchValue: (r) => brandName(r.brand_id),
+          sortValue: (r) => brandName(r.brand_id),
+        },
+        {
+          key: 'is_active',
+          label: 'Активний',
+          render: (r) => (r.is_active ? 'Так' : 'Ні'),
+          searchValue: (r) => (r.is_active ? 'Так активний' : 'Ні неактивний'),
+          sortValue: (r) => r.is_active,
+        },
       ]}
       defaultRow={() => ({
         name: '',
