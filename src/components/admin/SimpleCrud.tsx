@@ -7,6 +7,7 @@ import { insert, list, remove, update } from '@/lib/db'
 import type { TableName } from '@/lib/db'
 import { supabaseEnabled } from '@/lib/supabase'
 import { useToast } from '@/components/ui/toast'
+import { cn } from '@/lib/utils'
 import { v4 as uuid } from 'uuid'
 
 export interface CrudColumn<T> {
@@ -208,7 +209,7 @@ export function SimpleCrud<T extends { id: string; is_active?: boolean; name?: s
                   </thead>
                   <tbody>
                     {visibleRows.map((row) => (
-                      <tr key={row.id} className="border-b border-border last:border-0 hover:bg-muted/40">
+                      <tr key={row.id} className={rowClassName(row)}>
                         {columns.map((c) => (
                           <td key={String(c.key)} className={`px-3 py-2 ${c.className ?? ''}`}>
                             {c.render
@@ -312,6 +313,13 @@ export function SimpleCrud<T extends { id: string; is_active?: boolean; name?: s
         destructive
       />
     </div>
+  )
+}
+
+function rowClassName(row: { is_active?: boolean }) {
+  return cn(
+    'border-b border-border last:border-0 hover:bg-muted/40',
+    'is_active' in row && (row.is_active ? 'bg-emerald-500/10' : 'bg-red-500/10'),
   )
 }
 
