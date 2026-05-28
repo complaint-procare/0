@@ -134,7 +134,18 @@ export function SimpleCrud<T extends { id: string; is_active?: boolean; name?: s
           <h1 className="text-xl font-semibold">{title}</h1>
           {description && <p className="text-sm text-muted-foreground">{description}</p>}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          {data && data.length > 0 && (
+            <div className="relative sm:w-72 lg:w-96">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="pl-8"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={`Пошук: ${title.toLowerCase()}`}
+              />
+            </div>
+          )}
           {headerExtra}
           <Button
             onClick={() => {
@@ -162,15 +173,6 @@ export function SimpleCrud<T extends { id: string; is_active?: boolean; name?: s
         <EmptyState title="Записів немає" />
       ) : (
         <div className="space-y-3">
-          <div className="relative max-w-md">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              className="pl-8"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={`Пошук: ${title.toLowerCase()}`}
-            />
-          </div>
           {visibleRows.length === 0 ? (
             <EmptyState title="Нічого не знайдено" />
           ) : (
