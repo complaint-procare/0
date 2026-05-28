@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowDown, ArrowUp, ArrowUpDown, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, Pencil, Plus, Power, Search, Trash2 } from 'lucide-react'
 import { Button, Card, EmptyState, Input, Toggle } from '@/components/ui/primitives'
 import { ConfirmDialog, Dialog } from '@/components/ui/dialog'
 import { insert, list, remove, update } from '@/lib/db'
@@ -55,6 +55,8 @@ export function SimpleCrud<T extends { id: string; is_active?: boolean; name?: s
   const qc = useQueryClient()
   const [editing, setEditing] = useState<Partial<T> | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<T | null>(null)
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(null)
   const supabaseRequiredButMissing = !!requireSupabase && !supabaseEnabled
@@ -92,6 +94,14 @@ export function SimpleCrud<T extends { id: string; is_active?: boolean; name?: s
     })
   }, [columns, data, search, sort])
 
+  const selectedRows = useMemo(
+    () => (data ?? []).filter((row) => selectedIds.has(row.id)),
+    [data, selectedIds],
+  )
+  const selectedCount = selectedRows.length
+  const canDeactivateSelected = selectedRows.some((row) => 'is_active' in row && row.is_active)
+  const allVisibleSelected = visibleRows.length > 0 && visibleRows.every((row) => selectedIds.has(row.id))
+
   const toggleSort = (column: CrudColumn<T>) => {
     if (column.sortable === false) return
     const key = String(column.key)
@@ -100,6 +110,68 @@ export function SimpleCrud<T extends { id: string; is_active?: boolean; name?: s
       if (current.dir === 'asc') return { key, dir: 'desc' }
       return null
     })
+  }
+
+  const toggleRowSelection = (id: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleVisibleSelection = () => {
+    setSelectedIds((current) => {
+      const next = new Set(current)
+      if (allVisibleSelected) {
+        for (const row of visibleRows) next.delete(row.id)
+      } else {
+        for (const row of visibleRows) next.add(row.id)
+      }
+      return next
+    })
+  }
+
+  const deactivateSelected = async () => {
+    if (supabaseRequiredButMissing) {
+      showSupabaseRequired()
+      return
+    }
+    const targets = selectedRows.filter((row) => 'is_active' in row && row.is_active)
+    if (!targets.length) return
+    try {
+      await Promise.all(targets.map((row) => update(table, row.id, { is_active: false } as never)))
+      setSelectedIds(new Set())
+      refresh()
+      toast.show('Вибрані записи вимкнено', 'success')
+    } catch (e) {
+      toast.show((e as Error).message, 'error')
+    }
+  }
+
+  const deleteSelected = async () => {
+    if (supabaseRequiredButMissing) {
+      showSupabaseRequired()
+      return
+    }
+    try {
+      if (beforeDelete) {
+        for (const row of selectedRows) {
+          const reason = await beforeDelete(row)
+          if (reason) {
+            toast.show(reason, 'error')
+            return
+          }
+        }
+      }
+      await Promise.all(selectedRows.map((row) => remove(table, row.id)))
+      setSelectedIds(new Set())
+      refresh()
+      toast.show('Вибрані записи видалено', 'success')
+    } catch (e) {
+      toast.show((e as Error).message, 'error')
+    }
   }
 
   const save = async () => {
@@ -174,6 +246,28 @@ export function SimpleCrud<T extends { id: string; is_active?: boolean; name?: s
         <EmptyState title="Записів немає" />
       ) : (
         <div className="space-y-3">
+          {selectedCount > 0 && (
+            <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-muted-foreground">Вибрано: {selectedCount}</span>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!canDeactivateSelected}
+                  onClick={deactivateSelected}
+                >
+                  <Power className="h-3.5 w-3.5" /> Вимкнути
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setConfirmBulkDelete(true)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Видалити
+                </Button>
+              </div>
+            </div>
+          )}
           {visibleRows.length === 0 ? (
             <EmptyState title="Нічого не знайдено" />
           ) : (
@@ -182,6 +276,15 @@ export function SimpleCrud<T extends { id: string; is_active?: boolean; name?: s
                 <table className="min-w-full text-sm">
                   <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
                     <tr>
+                      <th className="w-10 px-3 py-2">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-border accent-emerald-600"
+                          checked={allVisibleSelected}
+                          onChange={toggleVisibleSelection}
+                          aria-label="Вибрати всі видимі записи"
+                        />
+                      </th>
                       {columns.map((c) => {
                         const key = String(c.key)
                         const isSorted = sort?.key === key
@@ -210,6 +313,15 @@ export function SimpleCrud<T extends { id: string; is_active?: boolean; name?: s
                   <tbody>
                     {visibleRows.map((row) => (
                       <tr key={row.id} className={rowClassName(row)}>
+                        <td className="px-3 py-2">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-border accent-emerald-600"
+                            checked={selectedIds.has(row.id)}
+                            onChange={() => toggleRowSelection(row.id)}
+                            aria-label="Вибрати запис"
+                          />
+                        </td>
                         {columns.map((c) => (
                           <td key={String(c.key)} className={`px-3 py-2 ${c.className ?? ''}`}>
                             {c.render
@@ -309,6 +421,15 @@ export function SimpleCrud<T extends { id: string; is_active?: boolean; name?: s
         }}
         title="Видалити запис?"
         description={confirmDelete?.name ? `«${confirmDelete.name}» буде видалено.` : 'Дію не можна скасувати.'}
+        confirmLabel="Видалити"
+        destructive
+      />
+      <ConfirmDialog
+        open={confirmBulkDelete}
+        onClose={() => setConfirmBulkDelete(false)}
+        onConfirm={deleteSelected}
+        title="Видалити вибрані записи?"
+        description={`Буде видалено ${selectedCount} запис(ів). Дію не можна скасувати.`}
         confirmLabel="Видалити"
         destructive
       />
