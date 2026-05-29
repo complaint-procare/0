@@ -17,7 +17,7 @@ import {
   Upload,
   X,
 } from 'lucide-react'
-import { getById, list, update } from '@/lib/db'
+import { getById, list } from '@/lib/db'
 import { Button, Card, Field, Input, Select, Textarea } from '@/components/ui/primitives'
 import { Autocomplete } from '@/components/ui/autocomplete'
 import { SourcePicker } from '@/components/ui/source-picker'
@@ -35,6 +35,7 @@ import {
   deleteAttachment,
   getAttachments,
   getChangeLog,
+  requestComplaintResend,
   updateComplaint,
 } from '@/lib/complaints'
 import { useAuth } from '@/lib/auth'
@@ -253,7 +254,7 @@ export function ComplaintDetailsPage() {
           if (!isAdmin) return
           setTouchingComplaint(true)
           try {
-            await update('complaints', c.id, { updated_at: new Date().toISOString() })
+            await requestComplaintResend(c.id)
             await refetch()
             await qc.invalidateQueries({ queryKey: ['complaints-page'] })
             toast.show('Скаргу оновлено для повторної обробки', 'success')
@@ -264,7 +265,7 @@ export function ComplaintDetailsPage() {
           }
         }}
         title="Оновити скаргу?"
-        description={`Буде виконано тільки UPDATE скарги #${padComplaintNumber(c.number)}. Це потрібно для повторної обробки зовнішнім n8n.`}
+        description={`Буде оновлено рядок інтеграції для скарги #${padComplaintNumber(c.number)}. Це потрібно для повторної обробки зовнішнім n8n.`}
         confirmLabel="Оновити"
       />
     </div>

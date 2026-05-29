@@ -159,6 +159,7 @@ export interface ComplaintSummaryRow {
   created_by_name: string
   product_name: string
   description: string
+  resend_requested_at: string | null
   synced_at: string
 }
 

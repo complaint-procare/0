@@ -5,7 +5,7 @@ import {
   list,
   update,
 } from './db'
-import { uploadAttachment } from './supabase'
+import { supabase, uploadAttachment } from './supabase'
 import type {
   ChangeLogEventType,
   Complaint,
@@ -170,6 +170,15 @@ export async function updateComplaint(input: UpdateComplaintInput): Promise<Comp
     }
   }
   return next
+}
+
+export async function requestComplaintResend(complaintId: string): Promise<void> {
+  if (!supabase) throw new Error('Supabase is not configured')
+
+  const { error } = await supabase.rpc('request_complaint_resend', {
+    complaint_uuid: complaintId,
+  })
+  if (error) throw error
 }
 
 export async function logEvent(input: {
