@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, ExternalLink, LinkIcon, RefreshCw } from 'lucide-react'
+import { CheckCircle2, ExternalLink, Hash, LinkIcon, RefreshCw, RotateCcw } from 'lucide-react'
 import { Button, Card } from '@/components/ui/primitives'
 import { getSetting } from '@/lib/db'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/lib/auth'
 import { useToast } from '@/components/ui/toast'
-import { formatDate } from '@/lib/utils'
+import { formatDate, padComplaintNumber } from '@/lib/utils'
+import { ConfirmDialog } from '@/components/ui/dialog'
 
 interface DriveConnection {
   connected: boolean
@@ -12,6 +15,12 @@ interface DriveConnection {
   folder_name: string
   folder_id: string
   connected_at: string
+}
+
+interface ComplaintCounterInfo {
+  last_sequence_value: number
+  max_complaint_number: number
+  next_complaint_number: number
 }
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID as string | undefined
@@ -23,10 +32,21 @@ const APP_BASE_PATH = import.meta.env.BASE_URL.startsWith('/')
 export function SettingsPage() {
   const toast = useToast()
   const qc = useQueryClient()
+  const { session, isAdmin } = useAuth()
+  const [confirmResetCounter, setConfirmResetCounter] = useState(false)
+  const [resettingCounter, setResettingCounter] = useState(false)
 
   const { data, isLoading } = useQuery({
     queryKey: ['app_setting', 'drive.connection'],
     queryFn: async () => (await getSetting('drive.connection')) ?? null,
+  })
+  const {
+    data: counter,
+    isLoading: isCounterLoading,
+    isError: isCounterError,
+  } = useQuery({
+    queryKey: ['complaint_number_counter'],
+    queryFn: getComplaintCounter,
   })
 
   const conn = (data?.value ?? null) as DriveConnection | null
@@ -78,9 +98,85 @@ export function SettingsPage() {
     window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
   }
 
+  const resetCounter = async () => {
+    if (!supabase) {
+      toast.show('Supabase не налаштовано', 'error')
+      return
+    }
+    if (!session || !isAdmin) {
+      toast.show('Скинути лічильник може тільки адміністратор', 'error')
+      return
+    }
+
+    setResettingCounter(true)
+    try {
+      const { data, error } = await supabase.rpc('reset_complaint_number_counter', {
+        actor_user_id: session.user_id,
+      })
+      if (error) throw error
+
+      const row = Array.isArray(data) ? data[0] : data
+      const nextNumber = Number(row?.next_complaint_number ?? 1)
+      await qc.invalidateQueries({ queryKey: ['complaint_number_counter'] })
+      toast.show(`Лічильник скинуто. Наступна скарга буде №${padComplaintNumber(nextNumber)}`, 'success')
+    } catch (e) {
+      toast.show((e as Error).message, 'error')
+    } finally {
+      setResettingCounter(false)
+    }
+  }
+
   return (
     <div className="space-y-4 p-4 md:p-6">
       <h1 className="text-xl font-semibold">Налаштування</h1>
+
+      <Card className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="flex items-center gap-2 font-semibold">
+              <Hash className="h-4 w-4" /> Лічильник скарг
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Номер використовується для позначення скарг у форматі №0001, №0002 тощо.
+            </p>
+          </div>
+          <Button
+            variant="destructive"
+            onClick={() => setConfirmResetCounter(true)}
+            disabled={!isAdmin || resettingCounter || isCounterLoading}
+          >
+            <RotateCcw className="h-4 w-4" /> Скинути лічильник
+          </Button>
+        </div>
+
+        {isCounterLoading ? (
+          <p className="text-sm text-muted-foreground">Завантаження лічильника…</p>
+        ) : isCounterError ? (
+          <p className="text-sm text-destructive">
+            Не вдалося завантажити стан лічильника. Перевірте, чи застосована остання міграція Supabase.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Info
+              label="Останній номер у скаргах"
+              value={`№${padComplaintNumber(Number(counter?.max_complaint_number ?? 0))}`}
+            />
+            <Info
+              label="Наступний номер"
+              value={`№${padComplaintNumber(Number(counter?.next_complaint_number ?? 1))}`}
+            />
+            <Info
+              label="Значення sequence"
+              value={String(counter?.last_sequence_value ?? '—')}
+            />
+          </div>
+        )}
+
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          Скидання виставляє наступний вільний номер після найбільшого існуючого номера. Якщо скарг
+          немає, наступна скарга почнеться з №0001. Дія доступна тільки адміністратору.
+        </div>
+      </Card>
 
       <Card className="space-y-4">
         <div className="flex items-start justify-between gap-3">
@@ -146,8 +242,32 @@ export function SettingsPage() {
           </Button>
         </div>
       </Card>
+
+      <ConfirmDialog
+        open={confirmResetCounter}
+        onClose={() => setConfirmResetCounter(false)}
+        onConfirm={resetCounter}
+        title="Скинути лічильник скарг?"
+        description="Після підтвердження наступна нова скарга отримає найближчий вільний номер. Існуючі скарги не зміняться."
+        confirmLabel="Скинути"
+        destructive
+      />
     </div>
   )
+}
+
+async function getComplaintCounter(): Promise<ComplaintCounterInfo> {
+  if (!supabase) throw new Error('Supabase is not configured')
+
+  const { data, error } = await supabase.rpc('get_complaint_number_counter')
+  if (error) throw error
+
+  const row = Array.isArray(data) ? data[0] : data
+  return {
+    last_sequence_value: Number(row?.last_sequence_value ?? 0),
+    max_complaint_number: Number(row?.max_complaint_number ?? 0),
+    next_complaint_number: Number(row?.next_complaint_number ?? 1),
+  }
 }
 
 function Info({ label, value }: { label: string; value: React.ReactNode }) {
