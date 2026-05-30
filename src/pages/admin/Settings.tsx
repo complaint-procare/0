@@ -19,6 +19,7 @@ interface DriveConnection {
 
 interface ComplaintCounterInfo {
   last_sequence_value: number
+  sequence_is_called: boolean
   max_complaint_number: number
   next_complaint_number: number
 }
@@ -165,16 +166,14 @@ export function SettingsPage() {
               label="Наступний номер"
               value={`№${padComplaintNumber(Number(counter?.next_complaint_number ?? 1))}`}
             />
-            <Info
-              label="Значення sequence"
-              value={String(counter?.last_sequence_value ?? '—')}
-            />
+            <Info label="Стан лічильника" value={formatCounterState(counter)} />
           </div>
         )}
 
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          Скидання виставляє наступний вільний номер після найбільшого існуючого номера. Якщо скарг
-          немає, наступна скарга почнеться з №0001. Дія доступна тільки адміністратору.
+          Скидання виставляє наступний вільний номер після найбільшого існуючого номера. Воно не
+          змінює номери існуючих скарг і не створює дублікати. Якщо скарг немає, наступна скарга
+          почнеться з №0001. Дія доступна тільки адміністратору.
         </div>
       </Card>
 
@@ -265,9 +264,18 @@ async function getComplaintCounter(): Promise<ComplaintCounterInfo> {
   const row = Array.isArray(data) ? data[0] : data
   return {
     last_sequence_value: Number(row?.last_sequence_value ?? 0),
+    sequence_is_called: Boolean(row?.sequence_is_called ?? false),
     max_complaint_number: Number(row?.max_complaint_number ?? 0),
     next_complaint_number: Number(row?.next_complaint_number ?? 1),
   }
+}
+
+function formatCounterState(counter: ComplaintCounterInfo | undefined): string {
+  if (!counter) return '—'
+  if (!counter.sequence_is_called) {
+    return `Скинуто, очікує №${padComplaintNumber(counter.next_complaint_number)}`
+  }
+  return `Активний, останнє видане значення ${counter.last_sequence_value}`
 }
 
 function Info({ label, value }: { label: string; value: React.ReactNode }) {
