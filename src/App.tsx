@@ -15,6 +15,7 @@ import { UsersPage } from '@/pages/admin/Users'
 import { EntitiesPage } from '@/pages/admin/Entities'
 import { FieldsPage } from '@/pages/admin/Fields'
 import { SettingsPage } from '@/pages/admin/Settings'
+import { StatusesPage } from '@/pages/admin/Statuses'
 
 function ProtectedRoutes() {
   const { session, loading } = useAuth()
@@ -43,6 +44,7 @@ function ProtectedRoutes() {
           <Route path="users" element={<UsersPage />} />
           <Route path="entities" element={<EntitiesPage />} />
           <Route path="fields" element={<FieldsPage />} />
+          <Route path="statuses" element={<StatusesPage />} />
           <Route path="general" element={<SettingsPage />} />
         </Route>
 
@@ -53,6 +55,7 @@ function ProtectedRoutes() {
         <Route path="/admin/users" element={<Navigate to="/settings/users" replace />} />
         <Route path="/admin/entities" element={<Navigate to="/settings/entities" replace />} />
         <Route path="/admin/fields" element={<Navigate to="/settings/fields" replace />} />
+        <Route path="/admin/statuses" element={<Navigate to="/settings/statuses" replace />} />
         <Route path="/admin/settings" element={<Navigate to="/settings/general" replace />} />
 
         <Route path="*" element={<Navigate to="/complaints" replace />} />

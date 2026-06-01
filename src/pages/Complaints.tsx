@@ -689,7 +689,13 @@ function StatusChangeDialog({
   actorId,
 }: {
   complaint: Complaint | null
-  statuses: { id: string; name: string; is_closed: boolean }[]
+  statuses: {
+    id: string
+    name: string
+    is_closed: boolean
+    is_active: boolean
+    sort_order: number
+  }[]
   onClose: () => void
   onSaved: () => void | Promise<void>
   actorId: string
@@ -756,11 +762,14 @@ function StatusChangeDialog({
       {!closed && (
         <Select value={statusId} onChange={(e) => setStatusId(e.target.value)} autoFocus>
           <option value="">Оберіть статус…</option>
-          {statuses.map((s) => (
-            <option key={s.id} value={s.id} disabled={s.id === complaint?.status_id}>
-              {s.name}
-            </option>
-          ))}
+          {statuses
+            .filter((s) => s.is_active || s.id === complaint?.status_id)
+            .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'uk'))
+            .map((s) => (
+              <option key={s.id} value={s.id} disabled={s.id === complaint?.status_id}>
+                {s.name}
+              </option>
+            ))}
         </Select>
       )}
     </Dialog>
