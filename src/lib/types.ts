@@ -57,6 +57,7 @@ export interface ComplaintStatus {
   id: string
   name: string
   sort_order: number
+  color: string
   is_closed: boolean
   is_active: boolean
 }

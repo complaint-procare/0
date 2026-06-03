@@ -5,24 +5,24 @@
 -- ============================================================
 -- Complaint statuses
 -- ============================================================
-insert into public.complaint_statuses (name, sort_order, is_closed, is_active) values
-  ('Нова',                       10, false, true),
-  ('В роботі',                   20, false, true),
-  ('Очікує відповідь клієнта',   30, false, true),
-  ('Очікує ВКЯ',                 40, false, true),
-  ('Закрита',                    50, true,  true),
-  ('Відхилена',                  60, true,  true)
+insert into public.complaint_statuses (name, sort_order, color, is_closed, is_active) values
+  ('Нова',                       10, '#2563EB', false, true),
+  ('В роботі',                   20, '#D97706', false, true),
+  ('Очікує відповідь клієнта',   30, '#0891B2', false, true),
+  ('Очікує ВКЯ',                 40, '#7C3AED', false, true),
+  ('Закрита',                    50, '#059669', true,  true),
+  ('Відхилена',                  60, '#DC2626', true,  true)
 on conflict (name) do nothing;
 
 -- ============================================================
 -- Severity levels
 -- ============================================================
 insert into public.severity_levels (name, sort_order, color, is_active) values
-  ('Інформаційна', 10, 'bg-slate-700/40 text-slate-300', true),
-  ('Низька',       20, 'bg-emerald-900/40 text-emerald-400', true),
-  ('Середня',      30, 'bg-amber-900/40 text-amber-400', true),
-  ('Висока',       40, 'bg-orange-900/40 text-orange-400 ring-1 ring-orange-700/50', true),
-  ('Критична',     50, 'bg-red-900/40 text-red-400 ring-1 ring-red-700/50', true)
+  ('Інформаційна', 10, '#64748B', true),
+  ('Низька',       20, '#059669', true),
+  ('Середня',      30, '#D97706', true),
+  ('Висока',       40, '#EA580C', true),
+  ('Критична',     50, '#DC2626', true)
 on conflict (name) do nothing;
 
 -- Brands, products, retail networks, clients and users are operational data

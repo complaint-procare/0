@@ -357,7 +357,7 @@ function BreakdownCard({
   rows,
 }: {
   title: string
-  rows: { label: string; value: number; tone?: string }[]
+  rows: { label: string; value: number; tone?: string; color?: string }[]
 }) {
   const total = rows.reduce((s, r) => s + r.value, 0) || 1
   return (
@@ -377,8 +377,8 @@ function BreakdownCard({
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                 <div
-                  className={cn('h-full rounded-full', r.tone ?? 'bg-foreground')}
-                  style={{ width: `${pct}%` }}
+                  className={cn('h-full rounded-full', !r.color && (r.tone ?? 'bg-foreground'))}
+                  style={{ width: `${pct}%`, backgroundColor: r.color }}
                 />
               </div>
             </div>
@@ -522,10 +522,23 @@ function breakdownByStatus(complaints: Complaint[], statuses: ComplaintStatus[])
     .map((s) => ({
       label: s.name,
       value: complaints.filter((c) => c.status_id === s.id).length,
+      color: normalizeHexColor(s.color) ?? undefined,
       tone: tones[s.name] ?? 'bg-foreground',
     }))
     .filter((r) => r.value > 0)
     .sort((a, b) => b.value - a.value)
+}
+
+function normalizeHexColor(value?: string | null) {
+  const trimmed = value?.trim()
+  if (!trimmed) return null
+  const match = /^#?([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.exec(trimmed)
+  if (!match) return null
+  const raw = match[1].toUpperCase()
+  if (raw.length === 3) {
+    return `#${raw[0]}${raw[0]}${raw[1]}${raw[1]}${raw[2]}${raw[2]}`
+  }
+  return `#${raw}`
 }
 
 function breakdownByBrand(complaints: Complaint[], brands: Brand[]) {

@@ -48,7 +48,7 @@ supabase/
 scripts/
   check-supabase.mjs            швидка перевірка стану БД + Edge Functions
   create-spa-route-pages.mjs    створює entry pages для GitHub Pages routes
-  deploy-supabase.mjs           link → db push → secrets → deploy functions
+  deploy-supabase.mjs           link → db push → seed → secrets → deploy functions
 ```
 
 ---
@@ -96,8 +96,9 @@ npm run deploy:supabase
 Робить:
 1. `supabase link --project-ref <ref>`
 2. `supabase db push` — застосовує нові міграції
-3. `supabase secrets set` — кладе `GOOGLE_OAUTH_CLIENT_ID`/`SECRET` з `.env.local`
-4. Деплоїть Edge Functions `upload-attachment` і `google-oauth-callback`
+3. `supabase db query --linked --file supabase/seed.sql` — оновлює системні довідники
+4. `supabase secrets set` — кладе `GOOGLE_OAUTH_CLIENT_ID`/`SECRET` з `.env.local`
+5. Деплоїть Edge Functions `upload-attachment` і `google-oauth-callback`
 
 **Якщо `db push` падає з `type ... already exists`** — це означає що існуючі міграції не марковані як applied на віддаленому Supabase. Виправлення:
 ```bash
@@ -199,10 +200,13 @@ CI виставляє Google OAuth secrets у Supabase перед деплоєм
 - `created_by_name` — хто створив скаргу, наприклад `Юлія Буцик`
 - `product_name` — назва продукту
 - `description` — опис / суть претензії
+- `resend_requested_at` — маркер ручної повторної обробки для n8n
 
 Колонки керуються таблицею `field_definitions` (entity `complaints`):
 - `show_in_registry` — показувати в таблиці
 - `sort_order` — порядок зліва направо
+
+Кнопка **«Оновити»** у деталях скарги викликає RPC `request_complaint_resend`, який оновлює рядок у `complaint_summary_rows` і ставить `resend_requested_at`. Для n8n це має спрацьовувати як `Update` webhook-подія.
 
 **Адмін** має дві точки керування:
 1. `/settings/fields` — CRUD метаданих полів і керування видимістю колонок у реєстрі

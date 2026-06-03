@@ -476,11 +476,14 @@ function EditForm({
               value={form.severity_id}
               onChange={(e) => setForm((f) => ({ ...f, severity_id: e.target.value }))}
             >
-              {data.severities.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
+              {data.severities
+                .filter((s) => s.is_active || s.id === complaint.severity_id)
+                .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'uk'))
+                .map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
             </Select>
           </Field>
           <Field label="Статус" required>

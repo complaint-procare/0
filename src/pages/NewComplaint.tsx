@@ -223,11 +223,14 @@ export function NewComplaintPage() {
                 onChange={(e) => setForm((f) => ({ ...f, severity_id: e.target.value }))}
               >
                 <option value="">Оберіть…</option>
-                {data.severities.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
+                {data.severities
+                  .filter((s) => s.is_active)
+                  .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'uk'))
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
               </Select>
             </Field>
             <Field label="Статус" required>

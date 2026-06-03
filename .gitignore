@@ -25,3 +25,6 @@ gcp-key*.json
 # Local secrets checklist (template-only; never commit filled-in version)
 secrets.local.md
 secrets.local.*
+
+# Local agent memory
+AGENT.md
