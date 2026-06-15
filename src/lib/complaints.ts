@@ -45,6 +45,7 @@ export async function createComplaint(input: CreateComplaintInput): Promise<Comp
     product_barcode: input.product_barcode,
     batch_number: input.batch_number,
     problem_description: input.problem_description,
+    resolution_response: '',
     severity_id: input.severity_id,
     status_id: input.status_id,
     drive_folder_id: null,

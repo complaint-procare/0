@@ -143,6 +143,7 @@ export interface Complaint {
   product_barcode: string
   batch_number: string
   problem_description: string
+  resolution_response: string
   severity_id: string | null
   status_id: string | null
   drive_folder_id?: string | null

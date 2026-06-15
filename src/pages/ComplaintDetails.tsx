@@ -206,6 +206,7 @@ export function ComplaintDetailsPage() {
               </div>
               <div className="grid grid-cols-1 divide-y divide-border border-t border-border">
                 <DetailRow label="Суть претензії" value={c.problem_description} multiline />
+                <DetailRow label="Рішення / Відповідь" value={c.resolution_response} multiline />
               </div>
             </Card>
           )}
@@ -336,6 +337,7 @@ function EditForm({
     product_barcode: complaint.product_barcode ?? '',
     batch_number: complaint.batch_number,
     problem_description: complaint.problem_description,
+    resolution_response: complaint.resolution_response ?? '',
     severity_id: complaint.severity_id ?? '',
     status_id: complaint.status_id ?? '',
     manager_id: complaint.manager_id,
@@ -387,6 +389,7 @@ function EditForm({
           product_barcode: form.product_barcode.trim(),
           batch_number: form.batch_number.trim(),
           problem_description: form.problem_description.trim(),
+          resolution_response: form.resolution_response.trim(),
           severity_id: form.severity_id,
           status_id: form.status_id,
           manager_id: form.manager_id,
@@ -507,6 +510,13 @@ function EditForm({
             rows={3}
             value={form.problem_description}
             onChange={(e) => setForm((f) => ({ ...f, problem_description: e.target.value }))}
+          />
+        </Field>
+        <Field label="Рішення / Відповідь">
+          <Textarea
+            rows={4}
+            value={form.resolution_response}
+            onChange={(e) => setForm((f) => ({ ...f, resolution_response: e.target.value }))}
           />
         </Field>
         <div className="flex justify-end gap-2 pt-2">
@@ -688,6 +698,7 @@ const FIELD_LABELS: Record<string, string> = {
   product_barcode: 'Штрихкод',
   batch_number: 'Номер партії',
   problem_description: 'Суть претензії',
+  resolution_response: 'Рішення / Відповідь',
   severity_id: 'Критичність',
   status_id: 'Статус',
   manager_id: 'Менеджер',

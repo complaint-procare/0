@@ -64,6 +64,7 @@ const DEFAULT_REGISTRY_FIELDS: RegistryField[] = [
   { field_key: 'batch_number', label: 'Партія', field_type: 'text', sort_order: 80 },
   { field_key: 'manager_id', label: 'Менеджер', field_type: 'reference', sort_order: 90 },
   { field_key: 'problem_description', label: 'Опис', field_type: 'textarea', sort_order: 100 },
+  { field_key: 'resolution_response', label: 'Рішення / Відповідь', field_type: 'textarea', sort_order: 105 },
   { field_key: 'severity_id', label: 'Критичність', field_type: 'reference', sort_order: 110 },
   { field_key: 'status_id', label: 'Статус', field_type: 'reference', sort_order: 120 },
 ]
@@ -114,7 +115,7 @@ export function ComplaintsPage() {
         if (q) {
           const num = padComplaintNumber(c.number)
           const hay =
-            `${num} ${c.batch_number} ${c.product_name ?? ''} ${c.product_barcode ?? ''} ${c.client_phone ?? ''} ${c.problem_description}`.toLowerCase()
+            `${num} ${c.batch_number} ${c.product_name ?? ''} ${c.product_barcode ?? ''} ${c.client_phone ?? ''} ${c.problem_description} ${c.resolution_response ?? ''}`.toLowerCase()
           if (!hay.includes(q)) return false
         }
         return true
@@ -409,6 +410,7 @@ function registryLabel(field: RegistryField): string {
   if (field.field_key === 'product_barcode') return 'Штрихкод'
   if (field.field_key === 'batch_number') return 'Партія'
   if (field.field_key === 'problem_description') return 'Опис'
+  if (field.field_key === 'resolution_response') return 'Рішення / Відповідь'
   return field.label
 }
 
@@ -421,19 +423,20 @@ function registryCellClass(fieldKey: string): string {
   const base = 'px-3 py-2'
   if (['number', 'product_barcode', 'batch_number'].includes(fieldKey)) return `${base} font-mono text-xs`
   if (['created_at', 'source_type', 'client_phone'].includes(fieldKey)) return `${base} whitespace-nowrap`
-  if (fieldKey === 'problem_description') return `${base} max-w-[280px] truncate`
+  if (fieldKey === 'problem_description' || fieldKey === 'resolution_response') return `${base} max-w-[280px] truncate`
   if (fieldKey === 'product_name') return `${base} min-w-[180px]`
   return base
 }
 
 function registryMobileValueClass(fieldKey: string): string | undefined {
   if (['number', 'product_barcode', 'batch_number', 'client_phone'].includes(fieldKey)) return 'font-mono'
-  if (fieldKey === 'problem_description') return 'line-clamp-2'
+  if (fieldKey === 'problem_description' || fieldKey === 'resolution_response') return 'line-clamp-2'
   return undefined
 }
 
 function registryTitle(fieldKey: string, complaint: Complaint): string | undefined {
   if (fieldKey === 'problem_description') return complaint.problem_description
+  if (fieldKey === 'resolution_response') return complaint.resolution_response
   if (fieldKey === 'product_name') return complaint.product_name
   return undefined
 }
@@ -472,6 +475,8 @@ function renderRegistryValue(
       return complaint.batch_number || '—'
     case 'problem_description':
       return complaint.problem_description || '—'
+    case 'resolution_response':
+      return complaint.resolution_response || '—'
     case 'severity_id':
       return <SeverityBadge id={complaint.severity_id} levels={data.severities} />
     case 'status_id':

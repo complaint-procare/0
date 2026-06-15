@@ -54,21 +54,22 @@ insert into public.field_definitions
    show_in_create, show_in_details, show_in_registry, sort_order)
 select e.id, x.field_key, x.label, x.field_type::field_type,
        true, x.is_required, true, true,
-       x.show_in_create, x.show_in_details, true, x.sort_order
+       x.show_in_create, x.show_in_details, x.show_in_registry, x.sort_order
 from e, (values
-  ('number',              'Номер',              'text',      true,  true,  false, 10),
-  ('created_at',          'Дата створення',     'date',      false, false, true,  20),
-  ('created_by',          'Створив',            'reference', false, false, true,  30),
-  ('manager_id',          'Менеджер',           'reference', false, false, true,  40),
-  ('source_type',         'Тип джерела',        'select',    true,  true,  true,  45),
-  ('retail_network_id',   'Торгова мережа',     'reference', false, true,  true,  50),
-  ('client_phone',        'Телефон клієнта',    'text',      false, true,  true,  55),
-  ('brand_id',            'Бренд',              'reference', true,  true,  true,  60),
-  ('product_name',        'Назва продукту',     'text',      true,  true,  true,  70),
-  ('product_barcode',     'Штрихкод',           'text',      false, true,  true,  75),
-  ('batch_number',        'Номер партії',       'text',      true,  true,  true,  80),
-  ('problem_description', 'Суть претензії',     'textarea',  true,  true,  true,  90),
-  ('severity_id',         'Критичність',        'reference', true,  true,  true,  110),
-  ('status_id',           'Статус',             'reference', true,  true,  true,  120)
-) as x(field_key, label, field_type, is_required, show_in_create, show_in_details, sort_order)
+  ('number',              'Номер',              'text',      true,  true,  false, true,  10),
+  ('created_at',          'Дата створення',     'date',      false, false, true,  true,  20),
+  ('created_by',          'Створив',            'reference', false, false, true,  true,  30),
+  ('manager_id',          'Менеджер',           'reference', false, false, true,  true,  40),
+  ('source_type',         'Тип джерела',        'select',    true,  true,  true,  true,  45),
+  ('retail_network_id',   'Торгова мережа',     'reference', false, true,  true,  true,  50),
+  ('client_phone',        'Телефон клієнта',    'text',      false, true,  true,  true,  55),
+  ('brand_id',            'Бренд',              'reference', true,  true,  true,  true,  60),
+  ('product_name',        'Назва продукту',     'text',      true,  true,  true,  true,  70),
+  ('product_barcode',     'Штрихкод',           'text',      false, true,  true,  true,  75),
+  ('batch_number',        'Номер партії',       'text',      true,  true,  true,  true,  80),
+  ('problem_description', 'Суть претензії',     'textarea',  true,  true,  true,  true,  90),
+  ('resolution_response', 'Рішення / Відповідь','textarea',  false, false, true,  false, 95),
+  ('severity_id',         'Критичність',        'reference', true,  true,  true,  true,  110),
+  ('status_id',           'Статус',             'reference', true,  true,  true,  true,  120)
+) as x(field_key, label, field_type, is_required, show_in_create, show_in_details, show_in_registry, sort_order)
 on conflict (entity_id, field_key) do nothing;
