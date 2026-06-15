@@ -21,15 +21,16 @@ export function NewComplaintPage() {
   const { data } = useQuery({
     queryKey: ['lookup-data'],
     queryFn: async () => {
-      const [brands, products, networks, statuses, severities, users] = await Promise.all([
+      const [brands, products, networks, statuses, severities, groups, users] = await Promise.all([
         list('brands'),
         list('products'),
         list('retail_networks'),
         list('complaint_statuses'),
         list('severity_levels'),
+        list('complaint_groups'),
         list('users'),
       ])
-      return { brands, products, networks, statuses, severities, users }
+      return { brands, products, networks, statuses, severities, groups, users }
     },
   })
 
@@ -42,6 +43,7 @@ export function NewComplaintPage() {
     product_name: '',
     product_barcode: '',
     batch_number: '',
+    complaint_group_id: '',
     problem_description: '',
     severity_id: '',
     status_id: '',
@@ -79,6 +81,7 @@ export function NewComplaintPage() {
       !form.brand_id ||
       !form.product_name.trim() ||
       !form.batch_number.trim() ||
+      !form.complaint_group_id ||
       !form.problem_description.trim() ||
       !form.severity_id ||
       !form.status_id
@@ -108,6 +111,7 @@ export function NewComplaintPage() {
         product_name: form.product_name.trim(),
         product_barcode: form.product_barcode.trim(),
         batch_number: form.batch_number.trim(),
+        complaint_group_id: form.complaint_group_id,
         problem_description: form.problem_description.trim(),
         severity_id: form.severity_id,
         status_id: form.status_id,
@@ -216,6 +220,22 @@ export function NewComplaintPage() {
                 value={form.batch_number}
                 onChange={(e) => setForm((f) => ({ ...f, batch_number: e.target.value }))}
               />
+            </Field>
+            <Field label="Група скарги" required>
+              <Select
+                value={form.complaint_group_id}
+                onChange={(e) => setForm((f) => ({ ...f, complaint_group_id: e.target.value }))}
+              >
+                <option value="">Оберіть…</option>
+                {data.groups
+                  .filter((g) => g.is_active)
+                  .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'uk'))
+                  .map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+              </Select>
             </Field>
             <Field label="Критичність" required>
               <Select

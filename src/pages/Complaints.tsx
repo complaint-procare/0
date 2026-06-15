@@ -5,7 +5,14 @@ import { ArrowLeft, ArrowRight, Columns3, Filter, Paperclip, Plus, Search, Trash
 import { list, remove, update } from '@/lib/db'
 import { Button, Card, EmptyState, Input, Select, Toggle } from '@/components/ui/primitives'
 import { formatDate, formatPhone, padComplaintNumber } from '@/lib/utils'
-import type { Complaint, ComplaintAttachment, ComplaintStatus, FieldDefinition, SeverityLevel } from '@/lib/types'
+import type {
+  Complaint,
+  ComplaintAttachment,
+  ComplaintGroup,
+  ComplaintStatus,
+  FieldDefinition,
+  SeverityLevel,
+} from '@/lib/types'
 import { StatusBadge, SeverityBadge } from '@/components/Badges'
 import { ConfirmDialog, Dialog } from '@/components/ui/dialog'
 import { updateComplaint } from '@/lib/complaints'
@@ -15,6 +22,7 @@ import { useToast } from '@/components/ui/toast'
 interface Filters {
   statusId: string
   severityId: string
+  groupId: string
   brandId: string
   networkId: string
   sourceType: '' | 'network' | 'client'
@@ -27,6 +35,7 @@ interface Filters {
 const EMPTY: Filters = {
   statusId: '',
   severityId: '',
+  groupId: '',
   brandId: '',
   networkId: '',
   sourceType: '',
@@ -46,6 +55,7 @@ interface ComplaintsPageData {
   complaints: Complaint[]
   statuses: ComplaintStatus[]
   severities: SeverityLevel[]
+  groups: ComplaintGroup[]
   brands: { id: string; name: string }[]
   networks: { id: string; name: string }[]
   users: { id: string; full_name: string }[]
@@ -62,6 +72,7 @@ const DEFAULT_REGISTRY_FIELDS: RegistryField[] = [
   { field_key: 'product_name', label: 'Продукт', field_type: 'text', sort_order: 70 },
   { field_key: 'product_barcode', label: 'Штрихкод', field_type: 'text', sort_order: 75 },
   { field_key: 'batch_number', label: 'Партія', field_type: 'text', sort_order: 80 },
+  { field_key: 'complaint_group_id', label: 'Група', field_type: 'reference', sort_order: 85 },
   { field_key: 'manager_id', label: 'Менеджер', field_type: 'reference', sort_order: 90 },
   { field_key: 'problem_description', label: 'Опис', field_type: 'textarea', sort_order: 100 },
   { field_key: 'resolution_response', label: 'Рішення / Відповідь', field_type: 'textarea', sort_order: 105 },
@@ -83,11 +94,12 @@ export function ComplaintsPage() {
   const { data, refetch, isLoading } = useQuery({
     queryKey: ['complaints-page'],
     queryFn: async () => {
-      const [complaints, statuses, severities, brands, networks, users, attachments, entities, fields] =
+      const [complaints, statuses, severities, groups, brands, networks, users, attachments, entities, fields] =
         await Promise.all([
           list('complaints'),
           list('complaint_statuses'),
           list('severity_levels'),
+          list('complaint_groups'),
           list('brands'),
           list('retail_networks'),
           list('users'),
@@ -95,7 +107,7 @@ export function ComplaintsPage() {
           list('entity_definitions'),
           list('field_definitions'),
         ])
-      return { complaints, statuses, severities, brands, networks, users, attachments, entities, fields }
+      return { complaints, statuses, severities, groups, brands, networks, users, attachments, entities, fields }
     },
   })
 
@@ -106,6 +118,7 @@ export function ComplaintsPage() {
       .filter((c) => {
         if (filters.statusId && c.status_id !== filters.statusId) return false
         if (filters.severityId && c.severity_id !== filters.severityId) return false
+        if (filters.groupId && c.complaint_group_id !== filters.groupId) return false
         if (filters.brandId && c.brand_id !== filters.brandId) return false
         if (filters.sourceType && c.source_type !== filters.sourceType) return false
         if (filters.networkId && c.retail_network_id !== filters.networkId) return false
@@ -114,8 +127,9 @@ export function ComplaintsPage() {
         if (filters.to && c.created_at > `${filters.to}T23:59:59`) return false
         if (q) {
           const num = padComplaintNumber(c.number)
+          const groupName = data.groups.find((g) => g.id === c.complaint_group_id)?.name ?? ''
           const hay =
-            `${num} ${c.batch_number} ${c.product_name ?? ''} ${c.product_barcode ?? ''} ${c.client_phone ?? ''} ${c.problem_description} ${c.resolution_response ?? ''}`.toLowerCase()
+            `${num} ${c.batch_number} ${groupName} ${c.product_name ?? ''} ${c.product_barcode ?? ''} ${c.client_phone ?? ''} ${c.problem_description} ${c.resolution_response ?? ''}`.toLowerCase()
           if (!hay.includes(q)) return false
         }
         return true
@@ -409,6 +423,7 @@ function registryLabel(field: RegistryField): string {
   if (field.field_key === 'source_type') return field.label === 'Тип джерела' ? 'Джерело' : field.label
   if (field.field_key === 'product_barcode') return 'Штрихкод'
   if (field.field_key === 'batch_number') return 'Партія'
+  if (field.field_key === 'complaint_group_id') return 'Група'
   if (field.field_key === 'problem_description') return 'Опис'
   if (field.field_key === 'resolution_response') return 'Рішення / Відповідь'
   return field.label
@@ -422,7 +437,7 @@ function registryHeaderClass(fieldKey: string): string {
 function registryCellClass(fieldKey: string): string {
   const base = 'px-3 py-2'
   if (['number', 'product_barcode', 'batch_number'].includes(fieldKey)) return `${base} font-mono text-xs`
-  if (['created_at', 'source_type', 'client_phone'].includes(fieldKey)) return `${base} whitespace-nowrap`
+  if (['created_at', 'source_type', 'client_phone', 'complaint_group_id'].includes(fieldKey)) return `${base} whitespace-nowrap`
   if (fieldKey === 'problem_description' || fieldKey === 'resolution_response') return `${base} max-w-[280px] truncate`
   if (fieldKey === 'product_name') return `${base} min-w-[180px]`
   return base
@@ -473,6 +488,8 @@ function renderRegistryValue(
       return complaint.product_barcode || '—'
     case 'batch_number':
       return complaint.batch_number || '—'
+    case 'complaint_group_id':
+      return byId(data.groups, complaint.complaint_group_id)
     case 'problem_description':
       return complaint.problem_description || '—'
     case 'resolution_response':
@@ -570,6 +587,7 @@ function FilterRow({
     | {
         statuses: { id: string; name: string }[]
         severities: { id: string; name: string }[]
+        groups: { id: string; name: string }[]
         brands: { id: string; name: string }[]
         networks: { id: string; name: string }[]
         users: { id: string; full_name: string }[]
@@ -604,6 +622,17 @@ function FilterRow({
             {data.severities.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
+              </option>
+            ))}
+          </Select>
+          <Select
+            value={filters.groupId}
+            onChange={(e) => setFilters((f) => ({ ...f, groupId: e.target.value }))}
+          >
+            <option value="">Усі групи скарг</option>
+            {data.groups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
               </option>
             ))}
           </Select>
@@ -644,17 +673,19 @@ function FilterRow({
               </option>
             ))}
           </Select>
-          <Select
-            value={filters.managerId}
-            onChange={(e) => setFilters((f) => ({ ...f, managerId: e.target.value }))}
-          >
-            <option value="">Усі менеджери</option>
-            {data.users.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.full_name}
-              </option>
-            ))}
-          </Select>
+          <div className="sm:col-span-2">
+            <Select
+              value={filters.managerId}
+              onChange={(e) => setFilters((f) => ({ ...f, managerId: e.target.value }))}
+            >
+              <option value="">Усі менеджери</option>
+              {data.users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.full_name}
+                </option>
+              ))}
+            </Select>
+          </div>
           <div className="min-w-0 space-y-1.5 overflow-hidden">
             <label className="block text-xs font-medium text-muted-foreground">Дата від</label>
             <Input

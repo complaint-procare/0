@@ -45,6 +45,7 @@ import type {
   Complaint,
   ComplaintAttachment,
   ComplaintChangeLog,
+  ComplaintGroup,
   ComplaintStatus,
   Product,
   SeverityLevel,
@@ -66,11 +67,12 @@ export function ComplaintDetailsPage() {
     queryKey: ['complaint', id],
     queryFn: async () => {
       if (!id) return null
-      const [complaint, statuses, severities, brands, products, networks, users, attachments, log] =
+      const [complaint, statuses, severities, groups, brands, products, networks, users, attachments, log] =
         await Promise.all([
           getById('complaints', id),
           list('complaint_statuses'),
           list('severity_levels'),
+          list('complaint_groups'),
           list('brands'),
           list('products'),
           list('retail_networks'),
@@ -78,7 +80,7 @@ export function ComplaintDetailsPage() {
           getAttachments(id),
           getChangeLog(id),
         ])
-      return { complaint, statuses, severities, brands, products, networks, users, attachments, log }
+      return { complaint, statuses, severities, groups, brands, products, networks, users, attachments, log }
     },
     enabled: !!id,
   })
@@ -203,6 +205,7 @@ export function ComplaintDetailsPage() {
                 <DetailRow label="Назва продукту" value={c.product_name || '—'} />
                 <DetailRow label="Штрихкод" value={c.product_barcode || '—'} mono />
                 <DetailRow label="Номер партії" value={c.batch_number} mono />
+                <DetailRow label="Група скарги" value={byId(data.groups, c.complaint_group_id)} />
               </div>
               <div className="grid grid-cols-1 divide-y divide-border border-t border-border">
                 <DetailRow label="Суть претензії" value={c.problem_description} multiline />
@@ -225,6 +228,7 @@ export function ComplaintDetailsPage() {
           users={data.users}
           statuses={data.statuses}
           severities={data.severities}
+          groups={data.groups}
           brands={data.brands}
           networks={data.networks}
         />
@@ -318,6 +322,7 @@ function EditForm({
   data: {
     statuses: ComplaintStatus[]
     severities: SeverityLevel[]
+    groups: ComplaintGroup[]
     brands: { id: string; name: string }[]
     products: Product[]
     networks: { id: string; name: string }[]
@@ -336,6 +341,7 @@ function EditForm({
     product_name: complaint.product_name ?? '',
     product_barcode: complaint.product_barcode ?? '',
     batch_number: complaint.batch_number,
+    complaint_group_id: complaint.complaint_group_id ?? '',
     problem_description: complaint.problem_description,
     resolution_response: complaint.resolution_response ?? '',
     severity_id: complaint.severity_id ?? '',
@@ -367,6 +373,7 @@ function EditForm({
       !form.brand_id ||
       !form.product_name.trim() ||
       !form.batch_number.trim() ||
+      !form.complaint_group_id ||
       !form.problem_description.trim() ||
       !form.severity_id ||
       !form.status_id
@@ -388,6 +395,7 @@ function EditForm({
           product_name: form.product_name.trim(),
           product_barcode: form.product_barcode.trim(),
           batch_number: form.batch_number.trim(),
+          complaint_group_id: form.complaint_group_id,
           problem_description: form.problem_description.trim(),
           resolution_response: form.resolution_response.trim(),
           severity_id: form.severity_id,
@@ -473,6 +481,22 @@ function EditForm({
               value={form.batch_number}
               onChange={(e) => setForm((f) => ({ ...f, batch_number: e.target.value }))}
             />
+          </Field>
+          <Field label="Група скарги" required>
+            <Select
+              value={form.complaint_group_id}
+              onChange={(e) => setForm((f) => ({ ...f, complaint_group_id: e.target.value }))}
+            >
+              <option value="">Оберіть…</option>
+              {data.groups
+                .filter((g) => g.is_active || g.id === complaint.complaint_group_id)
+                .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'uk'))
+                .map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+            </Select>
           </Field>
           <Field label="Критичність" required>
             <Select
@@ -697,6 +721,7 @@ const FIELD_LABELS: Record<string, string> = {
   product_name: 'Назва продукту',
   product_barcode: 'Штрихкод',
   batch_number: 'Номер партії',
+  complaint_group_id: 'Група скарги',
   problem_description: 'Суть претензії',
   resolution_response: 'Рішення / Відповідь',
   severity_id: 'Критичність',
@@ -711,6 +736,7 @@ function ChangeLogCard({
   users,
   statuses,
   severities,
+  groups,
   brands,
   networks,
 }: {
@@ -718,16 +744,18 @@ function ChangeLogCard({
   users: User[]
   statuses: ComplaintStatus[]
   severities: SeverityLevel[]
+  groups: ComplaintGroup[]
   brands: { id: string; name: string }[]
   networks: { id: string; name: string }[]
 }) {
   const userMap = useMemo(() => new Map(users.map((u) => [u.id, u.full_name])), [users])
   const statusMap = useMemo(() => new Map(statuses.map((s) => [s.id, s.name])), [statuses])
   const severityMap = useMemo(() => new Map(severities.map((s) => [s.id, s.name])), [severities])
+  const groupMap = useMemo(() => new Map(groups.map((g) => [g.id, g.name])), [groups])
   const brandMap = useMemo(() => new Map(brands.map((b) => [b.id, b.name])), [brands])
   const networkMap = useMemo(() => new Map(networks.map((n) => [n.id, n.name])), [networks])
 
-  const lookups = { userMap, statusMap, severityMap, brandMap, networkMap }
+  const lookups = { userMap, statusMap, severityMap, groupMap, brandMap, networkMap }
   const visible = log.filter((e) => !(e.field_name && HIDDEN_FIELDS.has(e.field_name)))
 
   return (
@@ -804,6 +832,7 @@ interface LookupMaps {
   userMap: Map<string, string>
   statusMap: Map<string, string>
   severityMap: Map<string, string>
+  groupMap: Map<string, string>
   brandMap: Map<string, string>
   networkMap: Map<string, string>
 }
@@ -816,6 +845,7 @@ function formatValue(fieldKey: string, value: unknown, lookups: LookupMaps): str
   if (typeof value === 'string') {
     if (fieldKey === 'status_id') return lookups.statusMap.get(value) ?? value
     if (fieldKey === 'severity_id') return lookups.severityMap.get(value) ?? value
+    if (fieldKey === 'complaint_group_id') return lookups.groupMap.get(value) ?? value
     if (fieldKey === 'manager_id' || fieldKey === 'created_by')
       return lookups.userMap.get(value) ?? value
     if (fieldKey === 'brand_id') return lookups.brandMap.get(value) ?? value

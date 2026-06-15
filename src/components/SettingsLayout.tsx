@@ -8,7 +8,7 @@ const TITLES: Record<string, { title: string; subtitle?: string }> = {
   '/settings/users': { title: 'Користувачі', subtitle: 'Користувачі та ролі' },
   '/settings/entities': { title: 'Сутності', subtitle: 'Конструктор кастомних сутностей' },
   '/settings/fields': { title: 'Поля', subtitle: 'Конструктор полів' },
-  '/settings/statuses': { title: 'Статуси', subtitle: 'Статуси скарг і рівні критичності' },
+  '/settings/statuses': { title: 'Статуси', subtitle: 'Статуси, критичність і групи скарг' },
   '/settings/general': { title: 'Загальні', subtitle: 'Загальні налаштування' },
 }
 

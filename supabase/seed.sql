@@ -25,6 +25,19 @@ insert into public.severity_levels (name, sort_order, color, is_active) values
   ('Критична',     50, '#DC2626', true)
 on conflict (name) do nothing;
 
+-- ============================================================
+-- Complaint groups
+-- ============================================================
+insert into public.complaint_groups (name, sort_order, is_active) values
+  ('Етикування', 10, true),
+  ('Сировина', 20, true),
+  ('Комплектуючі', 30, true),
+  ('Терміни', 40, true),
+  ('Реакція на використання', 50, true),
+  ('Логістичні скарги', 60, true),
+  ('Інші', 70, true)
+on conflict (name) do nothing;
+
 -- Brands, products, retail networks, clients and users are operational data
 -- created via the app UI — they must not be seeded here.
 
@@ -67,6 +80,7 @@ from e, (values
   ('product_name',        'Назва продукту',     'text',      true,  true,  true,  true,  70),
   ('product_barcode',     'Штрихкод',           'text',      false, true,  true,  true,  75),
   ('batch_number',        'Номер партії',       'text',      true,  true,  true,  true,  80),
+  ('complaint_group_id',  'Група скарги',       'reference', true,  true,  true,  true,  85),
   ('problem_description', 'Суть претензії',     'textarea',  true,  true,  true,  true,  90),
   ('resolution_response', 'Рішення / Відповідь','textarea',  false, false, true,  false, 95),
   ('severity_id',         'Критичність',        'reference', true,  true,  true,  true,  110),

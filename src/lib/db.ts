@@ -7,6 +7,7 @@ import type {
   Complaint,
   ComplaintAttachment,
   ComplaintChangeLog,
+  ComplaintGroup,
   ComplaintSummaryRow,
   ComplaintStatus,
   EntityDefinition,
@@ -26,6 +27,7 @@ type Tables = {
   clients: Client
   complaint_statuses: ComplaintStatus
   severity_levels: SeverityLevel
+  complaint_groups: ComplaintGroup
   entity_definitions: EntityDefinition
   entity_records: EntityRecord
   field_definitions: FieldDefinition

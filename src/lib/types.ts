@@ -70,6 +70,13 @@ export interface SeverityLevel {
   is_active: boolean
 }
 
+export interface ComplaintGroup {
+  id: string
+  name: string
+  sort_order: number
+  is_active: boolean
+}
+
 export type FieldType =
   | 'text'
   | 'textarea'
@@ -142,6 +149,7 @@ export interface Complaint {
   product_name: string
   product_barcode: string
   batch_number: string
+  complaint_group_id: string | null
   problem_description: string
   resolution_response: string
   severity_id: string | null

@@ -4,7 +4,7 @@ import { SimpleCrud } from '@/components/admin/SimpleCrud'
 import { SeverityBadge, StatusBadge } from '@/components/Badges'
 import { Button, Field, Input, Toggle } from '@/components/ui/primitives'
 import { list } from '@/lib/db'
-import type { ComplaintStatus, SeverityLevel } from '@/lib/types'
+import type { ComplaintGroup, ComplaintStatus, SeverityLevel } from '@/lib/types'
 
 const DEFAULT_STATUS_COLOR = '#2563EB'
 const DEFAULT_SEVERITY_COLOR = '#F59E0B'
@@ -23,7 +23,7 @@ const COLOR_PRESETS = [
 ]
 
 export function StatusesPage() {
-  const [section, setSection] = useState<'statuses' | 'severities'>('statuses')
+  const [section, setSection] = useState<'statuses' | 'severities' | 'groups'>('statuses')
   const { data: statuses } = useQuery({
     queryKey: ['complaint_statuses'],
     queryFn: () => list('complaint_statuses'),
@@ -32,10 +32,16 @@ export function StatusesPage() {
     queryKey: ['severity_levels'],
     queryFn: () => list('severity_levels'),
   })
+  const { data: groups } = useQuery({
+    queryKey: ['complaint_groups'],
+    queryFn: () => list('complaint_groups'),
+  })
   const nextStatusSortOrder =
     Math.max(0, ...(statuses ?? []).map((status) => status.sort_order)) + 10
   const nextSeveritySortOrder =
     Math.max(0, ...(severities ?? []).map((severity) => severity.sort_order)) + 10
+  const nextGroupSortOrder =
+    Math.max(0, ...(groups ?? []).map((group) => group.sort_order)) + 10
 
   return (
     <div>
@@ -57,14 +63,20 @@ export function StatusesPage() {
           >
             Критичність
           </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={section === 'groups' ? 'primary' : 'ghost'}
+            onClick={() => setSection('groups')}
+          >
+            Групи скарг
+          </Button>
         </div>
       </div>
 
-      {section === 'statuses' ? (
-        <ComplaintStatusesCrud nextSortOrder={nextStatusSortOrder} />
-      ) : (
-        <SeverityLevelsCrud nextSortOrder={nextSeveritySortOrder} />
-      )}
+      {section === 'statuses' && <ComplaintStatusesCrud nextSortOrder={nextStatusSortOrder} />}
+      {section === 'severities' && <SeverityLevelsCrud nextSortOrder={nextSeveritySortOrder} />}
+      {section === 'groups' && <ComplaintGroupsCrud nextSortOrder={nextGroupSortOrder} />}
     </div>
   )
 }
@@ -175,6 +187,84 @@ function ComplaintStatusesCrud({ nextSortOrder }: { nextSortOrder: number }) {
                 checked={!!row.is_closed}
                 onChange={(next) => set((r) => ({ ...r, is_closed: next }))}
                 aria-label="Закриває скаргу"
+              />
+            </label>
+          </div>
+        </div>
+      )}
+    />
+  )
+}
+
+function ComplaintGroupsCrud({ nextSortOrder }: { nextSortOrder: number }) {
+  return (
+    <SimpleCrud<ComplaintGroup>
+      title="Групи скарг"
+      description="Довідник груп скарг для форми створення, редагування та фільтрів реєстру."
+      table="complaint_groups"
+      columns={[
+        {
+          key: 'name',
+          label: 'Назва',
+          searchValue: (r) => r.name,
+        },
+        {
+          key: 'sort_order',
+          label: 'Порядок',
+          className: 'w-28 font-mono text-xs',
+          sortValue: (r) => r.sort_order,
+        },
+        {
+          key: 'is_active',
+          label: 'Активна',
+          render: (r) => (r.is_active ? 'Так' : 'Ні'),
+          searchValue: (r) => (r.is_active ? 'Так активна' : 'Ні вимкнена'),
+          sortValue: (r) => r.is_active,
+        },
+      ]}
+      defaultRow={() => ({
+        name: '',
+        sort_order: nextSortOrder,
+        is_active: true,
+      })}
+      validate={(row) => validateComplaintGroupRow(row)}
+      beforeDelete={async (row) => {
+        const complaints = await list('complaints')
+        if (complaints.some((c) => c.complaint_group_id === row.id)) {
+          return 'Не можна видалити: група використовується у скаргах. Вимкніть її замість видалення.'
+        }
+        return null
+      }}
+      renderForm={(row, set) => (
+        <div className="space-y-4">
+          <Field label="Назва" required>
+            <Input
+              value={row.name ?? ''}
+              onChange={(e) => set((r) => ({ ...r, name: e.target.value }))}
+              autoFocus
+            />
+          </Field>
+
+          <Field label="Порядок">
+            <Input
+              type="number"
+              value={row.sort_order ?? 0}
+              onChange={(e) => set((r) => ({ ...r, sort_order: Number(e.target.value) }))}
+            />
+          </Field>
+
+          <div className="rounded-lg border border-border bg-muted/30 p-3">
+            <label className="flex items-center justify-between gap-3 text-sm">
+              <span>
+                <span className="font-medium">Активна</span>
+                <span className="block text-xs text-muted-foreground">
+                  Активні групи доступні у формі створення та редагування скарги.
+                </span>
+              </span>
+              <Toggle
+                checked={!!row.is_active}
+                onChange={(next) => set((r) => ({ ...r, is_active: next }))}
+                aria-label="Активна група скарги"
               />
             </label>
           </div>
@@ -345,6 +435,12 @@ function validateStatusRow(row: Partial<ComplaintStatus>) {
 function validateSeverityRow(row: Partial<SeverityLevel>) {
   if (!row.name?.trim()) return 'Вкажіть назву критичності'
   if (!normalizeHexColor(row.color)) return 'Оберіть коректний HEX-колір'
+  if (!Number.isFinite(Number(row.sort_order))) return 'Вкажіть коректний порядок'
+  return null
+}
+
+function validateComplaintGroupRow(row: Partial<ComplaintGroup>) {
+  if (!row.name?.trim()) return 'Вкажіть назву групи скарги'
   if (!Number.isFinite(Number(row.sort_order))) return 'Вкажіть коректний порядок'
   return null
 }

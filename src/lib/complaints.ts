@@ -22,6 +22,7 @@ export interface CreateComplaintInput {
   product_name: string
   product_barcode: string
   batch_number: string
+  complaint_group_id: string
   problem_description: string
   severity_id: string
   status_id: string
@@ -44,6 +45,7 @@ export async function createComplaint(input: CreateComplaintInput): Promise<Comp
     product_name: input.product_name,
     product_barcode: input.product_barcode,
     batch_number: input.batch_number,
+    complaint_group_id: input.complaint_group_id,
     problem_description: input.problem_description,
     resolution_response: '',
     severity_id: input.severity_id,
