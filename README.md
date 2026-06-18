@@ -1,261 +1,709 @@
 # Complaint CRM
 
-Внутрішній CRM для обробки скарг споживачів. React + Vite + TypeScript + Tailwind, дані — у Supabase, файлові вкладення — у Google Drive через OAuth.
+Внутрішній вебзастосунок для реєстрації, обробки та аналізу скарг споживачів.
+
+Актуальний стан документації: **18 червня 2026 року**.
+
+## Основні можливості
+
+- вхід працівників за чотиризначним PIN;
+- створення скарги від торгової мережі або клієнта за телефоном;
+- вибір бренду, продукту, номера партії, групи скарги, критичності та статусу;
+- текстове поле **«Рішення / Відповідь»**, яке з'являється після створення скарги;
+- вкладення фото, відео й інших файлів у Google Drive;
+- реєстр із пошуком, фільтрами, налаштовуваними колонками та пагінацією;
+- історія змін полів, статусів і вкладень;
+- аналітика за періодом, статусами, брендами та іншими фільтрами;
+- адміністрування користувачів, довідників, полів і Google Drive OAuth;
+- денормалізована таблиця для Supabase Database Webhooks, n8n, Google Sheets і Telegram.
 
 ## Стек
 
-- **Frontend**: React 18, Vite 5, TypeScript, Tailwind CSS, TanStack Query/Table, React Router v6
-- **Бекенд**: Supabase (Postgres + RLS + Edge Functions на Deno)
-- **Файли**: Google Drive (OAuth від імені користувача → файли в My Drive у папці `Complaints`)
-- **Auth**: власна PIN-автентифікація (без Supabase Auth), сесія в `localStorage`
-- **Деплой**: GitHub Pages (статика) + Supabase (БД + Edge Functions)
-
----
+- **Frontend:** React 18, Vite 5, TypeScript, React Router 6
+- **UI:** Tailwind CSS, Lucide React, локальні UI-примітиви
+- **Дані:** TanStack Query, TanStack Table
+- **Backend:** Supabase Postgres, RLS, RPC, тригери
+- **Serverless:** Supabase Edge Functions на Deno
+- **Файли:** Google Drive OAuth
+- **Auth:** власна PIN-автентифікація без Supabase Auth
+- **Frontend deploy:** GitHub Pages
+- **Backend deploy:** Supabase CLI та GitHub Actions
 
 ## Структура проєкту
 
-```
+```text
 src/
-  App.tsx                       роутер
+  App.tsx                       маршрути застосунку
   components/
-    Layout.tsx                  бічна навігація
-    SettingsLayout.tsx          сабнаво для /settings/*
-    Badges.tsx                  StatusBadge / SeverityBadge
-    ui/                         базові примітиви + Dialog/Toast/Multi-Select
-    admin/                      CRUD-помічники
+    Layout.tsx                  desktop/mobile shell і навігація
+    SettingsLayout.tsx          заголовки сторінок /settings/*
+    Badges.tsx                  кольорові StatusBadge / SeverityBadge
+    admin/
+      SimpleCrud.tsx            спільний CRUD довідників
+      ProductsExcelImport.tsx   імпорт продуктів з Excel
+    analytics/
+      AnalyticsControls.tsx     фільтри та перемикач періоду
+      AnalyticsCharts.tsx       картки, графік і breakdown
+      analytics-calculations.ts чисті функції аналітики
+      analytics-types.ts        типи аналітики
+    complaints/
+      ComplaintFormFields.tsx   спільні поля create/edit форми
+      ComplaintEditor.tsx       редактор скарги
+      ComplaintAttachments.tsx  вкладення
+      ComplaintChangeLog.tsx    історія змін
+      ComplaintRegistryList.tsx список і пагінація реєстру
+      ComplaintRegistryFilters.tsx
+      ComplaintRegistryDialogs.tsx
+      registry-types.ts
+    ui/
+      autocomplete.tsx
+      dialog.tsx
+      multi-select.tsx
+      primitives.tsx
+      source-picker.tsx
+      toast.tsx
   lib/
-    auth.tsx                    PIN-логін, useAuth(), isAdmin
-    db.ts                       обгортки над supabase-js (list/getById/insert/update/remove)
-    supabase.ts                 клієнт + uploadAttachment()
-    complaints.ts               createComplaint / updateComplaint / change log
-    types.ts                    TS-моделі (відповідають таблицям Postgres)
-    utils.ts                    formatDate, hashPin, padComplaintNumber тощо
+    auth.tsx                    PIN-сесія, useAuth(), ролі
+    complaint-form.ts           стан, нормалізація і валідація форми
+    complaints.ts               створення/оновлення скарг, вкладення, лог
+    db.ts                       типізовані CRUD-обгортки Supabase
+    supabase.ts                 browser client і uploadAttachment()
+    types.ts                    моделі таблиць Postgres
+    utils.ts                    форматування, PIN hash, номер скарги
   pages/
-    Complaints.tsx              реєстр + фільтри + пагінація + діалог колонок (admin)
-    ComplaintDetails.tsx        деталі скарги + вкладення + лог змін
-    NewComplaint.tsx            форма створення з бренд-фільтром товарів і локальним превʼю файлів
-    Analytics.tsx               аналітика
-    Login.tsx                   PIN-екран
-    admin/                      Brands, Products, Networks, Clients, Users,
-                                Entities, Fields, Settings (Google Drive OAuth)
+    Login.tsx
+    Complaints.tsx              реєстр, фільтри, колонки, пагінація
+    NewComplaint.tsx            створення скарги
+    ComplaintDetails.tsx        деталі, редагування, файли, історія
+    Analytics.tsx
+    admin/
+      Brands.tsx
+      Clients.tsx
+      Entities.tsx
+      Fields.tsx
+      Networks.tsx
+      Products.tsx
+      Settings.tsx              Google Drive OAuth
+      Statuses.tsx              статуси, критичність, групи скарг
+      Users.tsx
 supabase/
-  migrations/                   декларативна схема + RLS
-  seed.sql                      ТІЛЬКИ системні дані (статуси, рівні критичності,
-                                визначення сутностей/полів). Без демо-юзерів/брендів.
+  migrations/                   схема, RLS, RPC, тригери й зміни полів
+  seed.sql                      тільки системні довідники та metadata
   functions/
-    upload-attachment/          приймає файл від SPA → OAuth refresh → upload в Drive
-    google-oauth-callback/      приймає ?code, обмінює на токени, зберігає в app_secrets
+    upload-attachment/
+    google-oauth-callback/
 scripts/
-  check-supabase.mjs            швидка перевірка стану БД + Edge Functions
-  create-spa-route-pages.mjs    створює entry pages для GitHub Pages routes
-  deploy-supabase.mjs           link → db push → seed → secrets → deploy functions
+  check-supabase.mjs
+  create-admin.mjs
+  create-spa-route-pages.mjs
+  deploy-supabase.mjs
+.github/workflows/
+  deploy.yml
+  supabase-migrate.yml
 ```
 
----
+## Маршрути та доступ
+
+| Маршрут | Призначення | Доступ |
+|---|---|---|
+| `/login` | PIN-вхід | усі |
+| `/complaints` | реєстр скарг | авторизовані |
+| `/complaints/new` | створення скарги | авторизовані |
+| `/complaints/:id` | деталі й редагування | авторизовані |
+| `/analytics` | аналітика | авторизовані |
+| `/settings/clients` | клієнти | авторизовані |
+| `/settings/brands` | бренди | авторизовані |
+| `/settings/products` | продукти | авторизовані |
+| `/settings/networks` | торгові мережі | авторизовані |
+| `/settings/users` | користувачі та PIN | admin |
+| `/settings/entities` | конструктор сутностей | admin |
+| `/settings/fields` | metadata полів | admin |
+| `/settings/statuses` | статуси, критичність, групи | admin |
+| `/settings/general` | Google Drive OAuth | admin |
+
+Позначка `admin` описує поточну навігацію: `Layout.tsx` приховує ці пункти
+від інших ролей. Окремого route-level RBAC guard у `App.tsx` наразі немає,
+тому це не є повноцінним security boundary.
+
+Старі маршрути `/clients`, `/brands`, `/products`, `/retail-networks` і `/admin/*`
+перенаправляються на відповідні сторінки `/settings/*`.
 
 ## Запуск локально
 
+### Вимоги
+
+- Node.js 20+
+- npm
+- доступ до Supabase-проєкту
+
+### Налаштування
+
 ```bash
-# 1. Залежності
 npm install
-
-# 2. Створити .env.local на основі .env.example
-cp .env.example .env.local
-# заповнити:
-#   VITE_SUPABASE_URL
-#   VITE_SUPABASE_ANON_KEY
-#   VITE_GOOGLE_OAUTH_CLIENT_ID
-# для локального Supabase deploy додатково можна додати:
-#   SUPABASE_ACCESS_TOKEN
-#   SUPABASE_DB_PASSWORD
-#   GOOGLE_OAUTH_CLIENT_ID
-#   GOOGLE_OAUTH_CLIENT_SECRET
-
-# 3. Dev server
-npm run dev          # http://localhost:5173
 ```
 
-PIN за замовчуванням — той, що поставили в адмінці (`/settings/users`). Для першого admin у порожній БД після `supabase db push` + `supabase db query --linked --file supabase/seed.sql` запустіть:
+Створіть `.env.local` на основі `.env.example`.
+
+PowerShell:
+
+```powershell
+Copy-Item .env.example .env.local
+```
+
+Bash:
 
 ```bash
-npm run create:admin -- "Admin User" 1234
+cp .env.example .env.local
 ```
 
-Офлайн/IndexedDB режим вимкнено: застосунок потребує `VITE_SUPABASE_URL` і `VITE_SUPABASE_ANON_KEY`.
+Мінімальні browser-змінні:
 
----
+```dotenv
+VITE_SUPABASE_URL=https://YOUR-PROJECT-REF.supabase.co
+VITE_SUPABASE_ANON_KEY=...
+VITE_GOOGLE_OAUTH_CLIENT_ID=...
+```
+
+Для локального Supabase deploy також потрібні:
+
+```dotenv
+SUPABASE_PROJECT_REF=...
+SUPABASE_ACCESS_TOKEN=...
+SUPABASE_DB_PASSWORD=...
+GOOGLE_OAUTH_CLIENT_ID=...
+GOOGLE_OAUTH_CLIENT_SECRET=...
+```
+
+Запуск:
+
+```bash
+npm run dev
+```
+
+Застосунок доступний на `http://localhost:5173`.
+
+Офлайн-режиму немає. Без `VITE_SUPABASE_URL` і `VITE_SUPABASE_ANON_KEY`
+застосунок не працює.
+
+## Перший запуск порожньої бази
+
+1. Застосуйте міграції:
+
+   ```bash
+   npx supabase db push
+   ```
+
+2. Додайте системні довідники:
+
+   ```bash
+   npx supabase db query --linked --file supabase/seed.sql
+   ```
+
+3. Створіть першого адміністратора:
+
+   ```bash
+   npm run create:admin -- "Admin User" 1234
+   ```
+
+PIN має складатися рівно з чотирьох цифр.
+
+## Життєвий цикл скарги
+
+### Створення
+
+Обов'язкові поля:
+
+- джерело;
+- торгова мережа або коректний телефон клієнта;
+- бренд;
+- назва продукту;
+- номер партії;
+- група скарги;
+- суть претензії;
+- критичність;
+- статус.
+
+Поле **«Рішення / Відповідь»** під час створення не показується. Воно
+необов'язкове й доступне після збереження скарги в режимі редагування.
+
+Текстові required-поля перевіряються після `trim()`, тому рядок із пробілів
+не вважається заповненим.
+
+### Джерело
+
+Підтримуються два типи:
+
+- `network` — торгова мережа;
+- `client` — телефон клієнта у форматі `+380` і дев'ять цифр.
+
+Торгова мережа вводиться через autocomplete:
+
+- можна вибрати існуючу активну мережу;
+- можна ввести нову назву;
+- при збереженні нова мережа створюється в `retail_networks`;
+- порівняння назв ігнорує регістр та зайві пробіли.
+
+### Продукт і бренд
+
+- без вибраного бренду autocomplete показує всі активні продукти;
+- після вибору бренду показуються продукти тільки цього бренду;
+- вибір продукту може підставити бренд і SKU/штрихкод;
+- якщо змінити бренд на несумісний, вибраний продукт і штрихкод очищаються;
+- назву продукту можна ввести вручну, навіть якщо збігу в каталозі немає.
+
+### Редагування
+
+У відкритій скарзі можна змінювати основні поля, групу, критичність, статус
+і **«Рішення / Відповідь»**. Усі зміни записуються в
+`complaint_change_log`.
+
+Статус із `is_closed = true` закриває скаргу. Закрита скарга не редагується,
+але її можна перевідкрити.
+
+## Довідники статусів, критичності та груп
+
+Сторінка `/settings/statuses` має три вкладки.
+
+### Статуси скарг
+
+Для статусу налаштовуються:
+
+- назва;
+- HEX-колір;
+- порядок;
+- `is_active`;
+- `is_closed`.
+
+Неактивний статус не пропонується для нових змін, але залишається видимим у
+старих скаргах та історії. Статус, який уже використовується, не можна
+видалити: його потрібно вимкнути.
+
+### Критичність
+
+Для рівня критичності налаштовуються:
+
+- назва;
+- HEX-колір;
+- порядок;
+- активність.
+
+Кольори критичності використовуються в бейджах реєстру й деталей.
+Статусні кольори також використовуються в аналітиці.
+
+### Групи скарг
+
+Група має назву, порядок і активність. Початковий seed:
+
+1. Етикування
+2. Сировина
+3. Комплектуючі
+4. Терміни
+5. Реакція на використання
+6. Логістичні скарги
+7. Інші
+
+Неактивна група не показується у новій скарзі, але зберігається в уже
+створених записах. Міграція `20260615000001_add_complaint_groups.sql`
+призначає старим скаргам групу **«Інші»**.
+
+## Реєстр скарг
+
+Маршрут: `/complaints`.
+
+Заголовок сторінки **`Oops!`** є навмисним продуктовим текстом. Не замінювати
+його на «Реєстр скарг» під час рефакторингів або виправлень UI.
+
+Можливості:
+
+- desktop table і mobile cards;
+- 50 записів на сторінку;
+- сортування за номером: нові зверху;
+- пошук за номером, партією, групою, продуктом, штрихкодом, телефоном,
+  суттю претензії та рішенням;
+- лічильник вкладень;
+- швидка зміна статусу;
+- видалення скарги адміністратором;
+- налаштовувані колонки.
+
+Фільтри:
+
+- статус;
+- критичність;
+- група скарги;
+- бренд;
+- тип джерела;
+- торгова мережа;
+- менеджер;
+- дата від;
+- дата до.
+
+На desktop поля **«Дата від»** і **«Дата до»** розташовані в одному рядку.
+Після зміни будь-якого фільтра або пошуку пагінація повертається на першу
+сторінку.
+
+### Колонки реєстру
+
+Системні й кастомні колонки беруться з `field_definitions` для entity
+`complaints`.
+
+Важливі прапорці:
+
+- `is_active`;
+- `is_visible`;
+- `show_in_registry`;
+- `sort_order`.
+
+Адміністратор може керувати ними:
+
+1. на `/settings/fields`;
+2. кнопкою **«Колонки»** у реєстрі.
+
+`show_in_create` і `show_in_details` зберігаються в metadata, але основні
+форми скарги наразі реалізовані явними React-полями. Автоматичний dynamic
+form builder для `custom_fields` ще не реалізований.
+
+## Аналітика
+
+Маршрут: `/analytics`.
+
+Підтримуються:
+
+- період: день, тиждень або місяць;
+- множинні фільтри за брендами, товарами, статусами, критичністю,
+  торговими мережами та менеджерами;
+- картки загальної кількості, нових, у роботі та закритих;
+- графік динаміки;
+- розподіл за статусом;
+- розподіл за брендом.
+
+## Основні таблиці Supabase
+
+| Таблиця | Призначення |
+|---|---|
+| `users` | PIN-користувачі та ролі |
+| `brands` | бренди |
+| `products` | каталог продуктів |
+| `retail_networks` | торгові мережі |
+| `clients` | довідник клієнтів |
+| `complaint_statuses` | статуси, колір, порядок, закриття, активність |
+| `severity_levels` | критичність, колір, порядок, активність |
+| `complaint_groups` | редаговані групи скарг |
+| `complaints` | основні записи скарг |
+| `complaint_attachments` | metadata файлів Google Drive |
+| `complaint_change_log` | історія змін |
+| `complaint_summary_rows` | денормалізовані рядки для webhook/n8n |
+| `entity_definitions` | metadata сутностей |
+| `field_definitions` | metadata полів і колонок |
+| `entity_records` | записи кастомних сутностей |
+| `app_settings` | публічні налаштування |
+| `app_secrets` | server-only секрети |
+
+### Основні поля `complaints`
+
+- `number` — номер із Postgres sequence;
+- `created_at`, `created_by`, `manager_id`;
+- `source_type`, `retail_network_id`, `client_phone`;
+- `brand_id`, `product_name`, `product_barcode`;
+- `batch_number`;
+- `complaint_group_id`;
+- `problem_description`;
+- `resolution_response`;
+- `severity_id`, `status_id`;
+- `drive_folder_id`, `drive_folder_url`;
+- `closed_at`, `updated_at`;
+- `custom_fields`.
+
+## Нумерація скарг
+
+Номер генерує Postgres sequence:
+
+```text
+public.complaint_number_seq
+```
+
+Frontend не використовує `max(number) + 1`. При вставці `number` не
+передається, а база атомарно виставляє наступне значення.
+
+Адміністративне керування лічильником реалізоване окремими RPC та
+міграціями `20260530000000_*`, `20260530000001_*`,
+`20260530000002_*`.
+
+## Історія змін
+
+`updateComplaint()` порівнює старі й нові значення та записує події в
+`complaint_change_log`.
+
+Підтримуються події:
+
+- `created`;
+- `field_updated`;
+- `status_changed`;
+- `reopened`;
+- `file_added`;
+- `file_deleted`.
+
+Для reference-полів UI показує назви, а не UUID: статус, критичність,
+групу скарги, бренд, мережу та користувача.
+
+## Вкладення та Google Drive
+
+Файл можна додати:
+
+- під час створення скарги;
+- пізніше в деталях скарги.
+
+Потік завантаження:
+
+1. frontend формує `FormData`;
+2. `uploadAttachment()` викликає Edge Function `upload-attachment`;
+3. функція перевіряє активного `uploaded_by`;
+4. читає `drive.oauth` із `app_secrets`;
+5. оновлює Google access token;
+6. створює папку `complaint-<number>`;
+7. завантажує файл;
+8. встановлює `anyone with link reader`;
+9. записує metadata в `complaint_attachments`.
+
+### Підключення Google Drive
+
+На `/settings/general` адміністратор натискає **«Підключити Google Drive»**.
+
+`google-oauth-callback`:
+
+- обмінює `code` на токени;
+- створює або знаходить папку `Complaints`;
+- зберігає `refresh_token` і `root_folder_id` у `app_secrets`
+  з ключем `drive.oauth`;
+- зберігає публічний статус у `app_settings`
+  з ключем `drive.connection`.
+
+Google Cloud:
+
+- проєкт: `complaints-496120`;
+- Drive API: enabled;
+- OAuth client type: Web;
+- redirect URI:
+  `https://ihjvjwzomrbyitubovsg.supabase.co/functions/v1/google-oauth-callback`;
+- scopes: `drive.file`, `userinfo.email`.
+
+OAuth у режимі **Testing** може відкликати refresh token приблизно через
+сім днів. Для стабільної роботи застосунок Google OAuth потрібно
+опублікувати, після чого перепідключити Drive.
+
+## PIN-автентифікація та безпека
+
+Проєкт не використовує Supabase Auth.
+
+- користувачі зберігаються в `public.users`;
+- ролі: `manager`, `supervisor`, `admin`, `product_manager`, `qa`;
+- PIN зберігається як salted SHA-256 hash;
+- старий legacy hash оновлюється при успішному вході;
+- сесія зберігається в `localStorage` під ключем `__auth_session__`;
+- неактивний або видалений користувач втрачає сесію.
+
+Через application-level auth RLS дозволяє browser CRUD для `anon` на
+потрібних таблицях. Це прийнятний компроміс лише для внутрішнього
+застосунку. Для публічного доступу потрібні Supabase Auth і суворіші RLS.
+
+Правила секретів:
+
+- не комітити `.env.local`;
+- `VITE_*` вважати публічними;
+- не передавати service role key у React;
+- Google refresh token зберігати тільки в `app_secrets`;
+- Telegram token зберігати тільки в n8n credentials;
+- не додавати реальні токени в README, код або issue.
+
+## Інтеграція з n8n
+
+Рекомендований потік:
+
+```text
+Supabase Database Webhook
+  -> n8n Webhook
+  -> formatting
+  -> Google Sheets
+  -> Telegram
+```
+
+Webhook:
+
+```text
+Table: public.complaint_summary_rows
+Events: Insert + Update
+Method: POST
+Content-Type: application/json
+```
+
+`complaint_summary_rows` містить:
+
+- `complaint_id`;
+- `complaint_number`;
+- `complaint_created_at`;
+- `created_by_id`;
+- `created_by_name`;
+- `product_name`;
+- `description`;
+- `resend_requested_at`;
+- `synced_at`.
+
+Ця таблиця є чинним інтеграційним контрактом для n8n. Її назву, набір і
+назви колонок, значення полів, події `Insert`/`Update`, тригери синхронізації
+та семантику `resend_requested_at` не можна змінювати без окремого
+узгодженого оновлення n8n workflow. Поточний рефакторинг frontend її не
+змінює.
+
+Кнопка **«Оновити»** в деталях викликає RPC
+`request_complaint_resend`, змінює `resend_requested_at` і створює
+`Update` webhook-подію.
+
+React-застосунок не містить Telegram token і не надсилає Telegram
+повідомлення напряму.
+
+## Виконано 18 червня 2026 року
+
+- створено спільний `ComplaintFormState`, нормалізацію та required-валідацію;
+- створення й редагування скарги підключено до спільних системних полів;
+- реєстр розділено на список, фільтри, діалоги й типи;
+- з деталей скарги винесено редактор, вкладення та історію змін;
+- з аналітики винесено controls, charts, типи та чисті обчислення;
+- виправлено повторне використання попереднього вибору в діалозі зміни
+  статусу;
+- додано production route entry pages для `/settings/statuses` і
+  `/admin/statuses`;
+- підтверджено, що заголовок **`Oops!`** є навмисним;
+- інтеграційний контракт `complaint_summary_rows` для n8n залишено без змін.
+
+## Міграції та seed
+
+Важливі останні міграції:
+
+| Міграція | Зміна |
+|---|---|
+| `20260527000000_complaint_summary_rows.sql` | summary-таблиця і синхронізація |
+| `20260529000001_add_complaint_resend_request.sql` | RPC повторної обробки |
+| `20260530000000_complaint_number_counter_admin.sql` | керування лічильником |
+| `20260603000000_status_and_severity_colors.sql` | HEX-кольори статусів і критичності |
+| `20260615000000_add_complaint_resolution_response.sql` | поле рішення/відповіді |
+| `20260615000001_add_complaint_groups.sql` | довідник і поле групи скарги |
+
+`supabase/seed.sql` містить тільки:
+
+- статуси;
+- рівні критичності;
+- групи скарг;
+- системні `entity_definitions`;
+- системні `field_definitions`.
+
+Не додавайте в seed реальних користувачів, бренди, продукти, мережі,
+клієнтів або скарги. Ними керує UI.
 
 ## Деплой
 
-### Supabase (БД + Edge Functions)
+### Supabase локально
 
 ```bash
 npm run deploy:supabase
 ```
 
-Робить:
-1. `supabase link --project-ref <ref>`
-2. `supabase db push` — застосовує нові міграції
-3. `supabase db query --linked --file supabase/seed.sql` — оновлює системні довідники
-4. `supabase secrets set` — кладе `GOOGLE_OAUTH_CLIENT_ID`/`SECRET` з `.env.local`
-5. Деплоїть Edge Functions `upload-attachment` і `google-oauth-callback`
+Скрипт:
 
-**Якщо `db push` падає з `type ... already exists`** — це означає що існуючі міграції не марковані як applied на віддаленому Supabase. Виправлення:
+1. визначає project ref;
+2. виконує `supabase link`;
+3. виконує `supabase db push`;
+4. запускає `supabase/seed.sql`;
+5. встановлює Google OAuth secrets;
+6. деплоїть `upload-attachment`;
+7. деплоїть `google-oauth-callback`.
+
+Після деплою:
+
 ```bash
-for v in <всі попередні версії>; do
-  npx supabase migration repair --status applied "$v"
-done
+npm run check:supabase
 ```
 
-### GitHub Pages (frontend)
+### GitHub Pages
 
-Workflow `.github/workflows/deploy.yml` пушить білд при push в `main`.
+`.github/workflows/deploy.yml` запускається після push у `main`.
 
-Потрібні GitHub Actions змінні/секрети:
+Потрібні repository variables:
 
-| Тип | Імʼя | Для чого |
-|---|---|---|
-| Variable | `SUPABASE_URL` | `VITE_SUPABASE_URL` у frontend build |
-| Variable | `SUPABASE_ANON_KEY` | `VITE_SUPABASE_ANON_KEY` у frontend build |
-| Variable | `GOOGLE_OAUTH_CLIENT_ID` | `VITE_GOOGLE_OAUTH_CLIENT_ID` у frontend build |
+| Variable | Значення |
+|---|---|
+| `SUPABASE_URL` | URL Supabase |
+| `SUPABASE_ANON_KEY` | browser anon key |
+| `GOOGLE_OAUTH_CLIENT_ID` | публічний OAuth client id |
 
-`npm run build` також створює `404.html` і статичні entry pages для основних React routes, щоб прямі GitHub Pages URL на кшталт `/0/complaints` повертали `200`. Динамічні detail URLs (`/0/complaints/<id>`) рендеряться через `404.html`, бо GitHub Pages не підтримує wildcard-файли.
+CI встановлює `VITE_BASE_PATH=/<repo>/`. Для цього репозиторію production
+base path — `/0/`.
 
-### GitHub Actions для Supabase
+`npm run build` також створює route entry pages і `404.html`, щоб прямі
+GitHub Pages URL працювали з React Router.
 
-Workflow `.github/workflows/supabase-migrate.yml` запускається при змінах у `supabase/migrations/**`, `supabase/functions/**`, `supabase/seed.sql` або самому workflow.
+### Supabase GitHub Actions
 
-Потрібні GitHub Actions змінні/секрети:
+`.github/workflows/supabase-migrate.yml` запускається при змінах у:
 
-| Тип | Імʼя | Для чого |
-|---|---|---|
-| Variable | `SUPABASE_PROJECT_REF` | `supabase link` |
-| Secret | `SUPABASE_ACCESS_TOKEN` | Supabase CLI deploy |
-| Secret | `SUPABASE_DB_PASSWORD` | `supabase db push` |
-| Secret | `GOOGLE_OAUTH_CLIENT_ID` | Edge Function OAuth client id |
-| Secret | `GOOGLE_OAUTH_CLIENT_SECRET` | Edge Function OAuth client secret |
+- `supabase/migrations/**`;
+- `supabase/functions/**`;
+- `supabase/seed.sql`;
+- самому workflow.
 
-CI виставляє Google OAuth secrets у Supabase перед деплоєм і деплоїть обидві Edge Functions: `upload-attachment` та `google-oauth-callback`. Якщо OAuth secrets відсутні, workflow падає, щоб не деплоїти функції у напівзламаному стані.
+Потрібні:
 
----
+| Тип | Ім'я |
+|---|---|
+| Variable | `SUPABASE_PROJECT_REF` |
+| Secret | `SUPABASE_ACCESS_TOKEN` |
+| Secret | `SUPABASE_DB_PASSWORD` |
+| Secret | `GOOGLE_OAUTH_CLIENT_ID` |
+| Secret | `GOOGLE_OAUTH_CLIENT_SECRET` |
 
-## Google Drive (OAuth)
+## Команди
 
-Додаток отримує OAuth refresh_token від реального користувача:
-
-1. У `/settings/general` адмін натискає **Підключити Google Drive**
-2. Google запитує дозвіл (scope `drive.file` + `userinfo.email`)
-3. Callback `google-oauth-callback` обмінює `code` на токени, створює (або знаходить) папку **Complaints** у My Drive і зберігає:
-   - `refresh_token` + `root_folder_id` → `public.app_secrets` (service-role only)
-   - публічний статус (email, дата, папка) → `public.app_settings`
-4. Кожне завантаження файлу: `upload-attachment` бере refresh_token, оновлює access_token, кладе файл у `complaint-<номер>/`, ставить дозвіл `anyone with link reader` → thumbnail-и працюють у браузері
-
-### Налаштування в Google Cloud Console (одноразово)
-
-- Проєкт: `complaints-496120`
-- Drive API: enabled
-- OAuth consent: External / Testing, test users додаються вручну
-- OAuth Client ID (Web):
-  - Redirect URI: `https://ihjvjwzomrbyitubovsg.supabase.co/functions/v1/google-oauth-callback`
-- Scopes: `auth/drive.file`, `auth/userinfo.email`
-
----
-
-## Аутентифікація користувачів
-
-Власна PIN-схема, **не** Supabase Auth:
-- Користувачі — рядки в `public.users` з ролями `manager | supervisor | admin | product_manager | qa`
-- PIN зберігається як SHA-256 хеш з salt-префіксом (див. `hashPin` в `src/lib/utils.ts`)
-- При вході екран `Login.tsx` хешує введений PIN і шукає збіг
-- Сесія — `__auth_session__` у `localStorage`
-- RLS-політики дозволяють anon все, бо аутентифікація — апплікаційна (не БД-рівня). Це усвідомлений компроміс для внутрішнього CRM.
-
----
-
-## Форми скарг
-
-Створення та редагування скарги використовують однакову required-валідацію для ключових полів: джерело, бренд, назва продукту, номер партії, суть претензії, критичність і статус. Текстові required-поля перевіряються після `trim()`, щоб рядок із самих пробілів не проходив як заповнене значення.
-
-У формі створення скарги торгова мережа вводиться через autocomplete:
-- можна вибрати існуючу мережу з підказок;
-- можна ввести нову назву вручну;
-- при збереженні нова назва створюється в `retail_networks` і надалі зʼявляється в підказках;
-- збіг існуючої назви перевіряється без урахування регістру й зайвих пробілів.
-
-Каталог продуктів у підказках фільтрується за вибраним брендом:
-- якщо бренд не вибрано — показуються всі активні продукти;
-- якщо бренд вибрано — показуються тільки активні продукти цього бренду;
-- вибір продукту з каталогу може автоматично підставити бренд і штрихкод;
-- якщо після вибору товару змінити бренд, товар і штрихкод очищаються, коли вибраний товар належить іншому бренду.
-
----
-
-## Реєстр скарг (`/complaints`)
-
-Реєстр показує відфільтровані скарги сторінками по 50 записів. Після зміни пошуку або фільтрів сторінка автоматично повертається на початок, щоб користувач одразу бачив перші релевантні результати.
-
-Фільтри працюють у desktop і mobile-режимах. У мобільному діалозі поля діапазону дат мають явні підписи **«Дата від»** і **«Дата до»**, а date-input-и обмежені шириною контейнера для коректного відображення на iOS/WebKit.
-
-Для інтеграцій і Database Webhooks є денормалізована таблиця `complaint_summary_rows`. Вона автоматично синхронізується тригерами з `complaints` і `users` та містить готові для експорту поля:
-- `created_by_name` — хто створив скаргу, наприклад `Юлія Буцик`
-- `product_name` — назва продукту
-- `description` — опис / суть претензії
-- `resend_requested_at` — маркер ручної повторної обробки для n8n
-
-Колонки керуються таблицею `field_definitions` (entity `complaints`):
-- `show_in_registry` — показувати в таблиці
-- `sort_order` — порядок зліва направо
-
-Кнопка **«Оновити»** у деталях скарги викликає RPC `request_complaint_resend`, який оновлює рядок у `complaint_summary_rows` і ставить `resend_requested_at`. Для n8n це має спрацьовувати як `Update` webhook-подія.
-
-**Адмін** має дві точки керування:
-1. `/settings/fields` — CRUD метаданих полів і керування видимістю колонок у реєстрі
-2. Кнопка **«Колонки»** на сторінці реєстру — швидкий toggle + ←/→ перевпорядкування. Зміни одразу видно всім.
-
----
-
-## Нумерація скарг
-
-Номер скарги (`complaints.number`) генерується в Postgres через `public.complaint_number_seq`.
-Frontend не рахує `max(number) + 1`; при створенні скарги рядок вставляється без `number`, а БД атомарно ставить наступне значення.
-
-Міграція `20260513000003_cleanup_legacy_storage_and_numbering.sql` синхронізує sequence з наявними даними:
-
-```sql
-setval('public.complaint_number_seq', max(number) + 1, false)
-```
-
----
-
-## Скрипти
-
-| Команда | Що робить |
+| Команда | Дія |
 |---|---|
 | `npm run dev` | Vite dev server на 5173 |
-| `npm run build` | TS check + production build у `dist/` |
-| `npm run preview` | Локальний preview збірки |
-| `npm run lint` | `tsc --noEmit` — тип-чек без емісії |
-| `npm run check:supabase` | Перевірка Supabase REST, основних таблиць і Edge Functions |
-| `npm run create:admin -- "Admin User" 1234` | Створити першого admin у Supabase через `.env.local` |
-| `npm run deploy:supabase` | Повний деплой: migrations + secrets + functions |
+| `npm run build` | TypeScript build, Vite build, route pages |
+| `npm run preview` | локальний preview `dist` |
+| `npm run lint` | `tsc --noEmit` |
+| `npm run check:supabase` | базова перевірка REST і Edge Functions |
+| `npm run create:admin -- "Name" 1234` | створення першого admin |
+| `npm run deploy:supabase` | migrations, seed, secrets, functions |
 
----
+У Windows sandbox Vite/esbuild інколи завершується з `spawn EPERM`.
+Повторний запуск поза sandbox зазвичай проходить без змін коду.
+
+## Документація
+
+- `README.md` — публічна документація, відстежується Git.
+- `AGENT.md` — локальна технічна пам'ятка для агентів, ігнорується Git.
+
+Після змін схеми, маршрутів, env, workflow або ключових UI-сценаріїв
+оновлюйте обидва файли.
 
 ## Корисні посилання
 
-- **Supabase Dashboard**: https://supabase.com/dashboard/project/ihjvjwzomrbyitubovsg
-- **Google Cloud Console**: https://console.cloud.google.com/apis/credentials?project=complaints-496120
-- **OAuth consent (Audience)**: https://console.cloud.google.com/auth/audience
-- **GitHub repo**: https://github.com/complaint-procare/0
-- **Локальний застосунок**: http://localhost:5173
+- Supabase Dashboard:
+  https://supabase.com/dashboard/project/ihjvjwzomrbyitubovsg
+- Google Cloud credentials:
+  https://console.cloud.google.com/apis/credentials?project=complaints-496120
+- Google OAuth audience:
+  https://console.cloud.google.com/auth/audience
+- GitHub:
+  https://github.com/complaint-procare/0
+- Локальний застосунок:
+  http://localhost:5173
 
----
+## Відомі компроміси
 
-## Відомі компроміси / TODO
-
-- `public.app_settings` відкритий для anon (`drive.connection` показує email — це ок, він не секретний). Якщо потрібна суворіша ізоляція — переїхати на політику з allow-list ключів.
-- RLS відкритий для anon на всіх таблицях через PIN-схему. Якщо буде експозиція назовні — реалізувати справжній Supabase Auth.
-- Edge Function `upload-attachment` НЕ перевіряє JWT (`--no-verify-jwt`). Авторизація — `uploaded_by` валідується проти `public.users`. Якщо переходити на справжній auth — увімкнути `verify_jwt`.
-- `seed.sql` — лише системні довідники. Брендів/продуктів/мереж/юзерів **не** додавати — управляються через UI.
-- Google OAuth у режимі **Testing** дає refresh_token на 7 днів. Для production — Publish App на Audience-сторінці.
-- Історична міграція `20260512000002_storage.sql` лишається в репозиторії як applied migration history, але активний шлях вкладень — Google Drive OAuth. Cleanup-міграція прибирає legacy Storage policies і старий `drive.base_folder`.
+- PIN-auth і відкриті anon policies не підходять для публічного CRM.
+- Admin-only navigation не замінює route-level authorization.
+- `upload-attachment` і `google-oauth-callback` деплояться з
+  `--no-verify-jwt`.
+- Авторизація завантаження перевіряється через `uploaded_by` у `users`.
+- `show_in_create` і `show_in_details` поки не генерують форми автоматично.
+- Активний шлях вкладень — Google Drive; історична Supabase Storage
+  міграція залишається тільки як applied migration history.
+- `app_settings` доступний browser-клієнту; секрети мають бути тільки в
+  `app_secrets`.

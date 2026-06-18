@@ -19,6 +19,7 @@ const routes = [
   'settings/users',
   'settings/entities',
   'settings/fields',
+  'settings/statuses',
   'settings/general',
   'clients',
   'brands',
@@ -27,6 +28,7 @@ const routes = [
   'admin/users',
   'admin/entities',
   'admin/fields',
+  'admin/statuses',
   'admin/settings',
 ]
 

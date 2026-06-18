@@ -4,13 +4,17 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, File as FileIcon, Film, Image as ImageIcon, Paperclip, Save, Trash2, Upload } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { insert, list } from '@/lib/db'
-import { Button, Card, Field, Input, Select, Textarea } from '@/components/ui/primitives'
-import { Autocomplete } from '@/components/ui/autocomplete'
-import { SourcePicker } from '@/components/ui/source-picker'
+import { Button, Card } from '@/components/ui/primitives'
+import { ComplaintFormFields } from '@/components/complaints/ComplaintFormFields'
 import { createComplaint } from '@/lib/complaints'
 import { useToast } from '@/components/ui/toast'
-import { bytesToReadable, fullPhone, isValidUaPhone } from '@/lib/utils'
-import type { Product } from '@/lib/types'
+import { bytesToReadable } from '@/lib/utils'
+import {
+  createEmptyComplaintForm,
+  normalizeComplaintForm,
+  normalizeRetailNetworkName,
+  validateComplaintForm,
+} from '@/lib/complaint-form'
 
 export function NewComplaintPage() {
   const { session } = useAuth()
@@ -34,61 +38,21 @@ export function NewComplaintPage() {
     },
   })
 
-  const [form, setForm] = useState({
-    source_type: 'network' as 'network' | 'client',
-    retail_network_id: '',
-    retail_network_name: '',
-    phone_suffix: '',
-    brand_id: '',
-    product_name: '',
-    product_barcode: '',
-    batch_number: '',
-    complaint_group_id: '',
-    problem_description: '',
-    severity_id: '',
-    status_id: '',
-  })
+  const [form, setForm] = useState(() => createEmptyComplaintForm(session?.user_id))
   const [files, setFiles] = useState<File[]>([])
   const [submitting, setSubmitting] = useState(false)
 
   if (!data) return <div className="p-6 text-sm text-muted-foreground">Завантаження…</div>
 
-  const productOptions = data.products
-    .filter((p) => p.is_active && (!form.brand_id || p.brand_id === form.brand_id))
-    .map((p) => ({
-      key: p.id,
-      label: p.name,
-      hint: p.sku ?? undefined,
-      value: p,
-    }))
-  const productEmptyHint = form.brand_id
-    ? 'Для вибраного бренду товарів не знайдено — назва введеться як є'
-    : 'Збігів немає — назва введеться як є'
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!session) return
+    const validationError = validateComplaintForm(form)
+    if (validationError) {
+      toast.show(validationError, 'error')
+      return
+    }
     const retailNetworkName = normalizeRetailNetworkName(form.retail_network_name)
-    if (form.source_type === 'network' && !retailNetworkName) {
-      toast.show('Вкажіть торгову мережу', 'error')
-      return
-    }
-    if (form.source_type === 'client' && !isValidUaPhone(form.phone_suffix)) {
-      toast.show('Телефон має містити 9 цифр після +380', 'error')
-      return
-    }
-    if (
-      !form.brand_id ||
-      !form.product_name.trim() ||
-      !form.batch_number.trim() ||
-      !form.complaint_group_id ||
-      !form.problem_description.trim() ||
-      !form.severity_id ||
-      !form.status_id
-    ) {
-      toast.show('Заповніть усі обов\'язкові поля', 'error')
-      return
-    }
     setSubmitting(true)
     try {
       const actor = data.users.find((u) => u.id === session.user_id)
@@ -99,22 +63,28 @@ export function NewComplaintPage() {
       }
       const retailNetworkId =
         form.source_type === 'network'
-          ? await ensureRetailNetworkId(retailNetworkName, data.networks)
+          ? form.retail_network_id ||
+            await ensureRetailNetworkId(retailNetworkName, data.networks)
           : null
+      const normalized = normalizeComplaintForm({
+        ...form,
+        retail_network_id: retailNetworkId ?? '',
+        manager_id: actor.id,
+      })
       const c = await createComplaint({
         actor_id: actor.id,
-        manager_id: actor.id,
-        source_type: form.source_type,
-        retail_network_id: retailNetworkId,
-        client_phone: fullPhone(form.phone_suffix),
-        brand_id: form.brand_id,
-        product_name: form.product_name.trim(),
-        product_barcode: form.product_barcode.trim(),
-        batch_number: form.batch_number.trim(),
-        complaint_group_id: form.complaint_group_id,
-        problem_description: form.problem_description.trim(),
-        severity_id: form.severity_id,
-        status_id: form.status_id,
+        manager_id: normalized.manager_id,
+        source_type: normalized.source_type,
+        retail_network_id: normalized.retail_network_id,
+        client_phone: normalized.client_phone,
+        brand_id: normalized.brand_id,
+        product_name: normalized.product_name,
+        product_barcode: normalized.product_barcode,
+        batch_number: normalized.batch_number,
+        complaint_group_id: normalized.complaint_group_id,
+        problem_description: normalized.problem_description,
+        severity_id: normalized.severity_id,
+        status_id: normalized.status_id,
         files,
       })
       await qc.invalidateQueries({ queryKey: ['complaints-page'] })
@@ -141,142 +111,12 @@ export function NewComplaintPage() {
 
       <form onSubmit={submit} className="grid gap-4 lg:grid-cols-3">
         <Card className="space-y-4 lg:col-span-2">
-          <div className="sm:col-span-2">
-            <SourcePicker
-              sourceType={form.source_type}
-              onSourceTypeChange={(t) => setForm((f) => ({ ...f, source_type: t }))}
-              networkId={form.retail_network_id}
-              onNetworkIdChange={(id) => setForm((f) => ({ ...f, retail_network_id: id }))}
-              networkName={form.retail_network_name}
-              onNetworkNameChange={(name) =>
-                setForm((f) => ({ ...f, retail_network_name: name }))
-              }
-              phoneSuffix={form.phone_suffix}
-              onPhoneSuffixChange={(s) => setForm((f) => ({ ...f, phone_suffix: s }))}
-              networks={data.networks}
-              required
-            />
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="Назва продукту" required hint="Підказки беруться з каталогу продуктів">
-              <Autocomplete<Product>
-                value={form.product_name}
-                onChange={(v) => setForm((f) => ({ ...f, product_name: v }))}
-                onSelect={(opt) => {
-                  setForm((f) => ({
-                    ...f,
-                    product_name: opt.value.name,
-                    product_barcode: opt.value.sku ?? f.product_barcode,
-                    brand_id: opt.value.brand_id ?? f.brand_id,
-                  }))
-                }}
-                options={productOptions}
-                placeholder="Почніть вводити, напр., кавовий скраб"
-                emptyHint={productEmptyHint}
-              />
-            </Field>
-            <Field label="Штрихкод">
-              <Input
-                value={form.product_barcode}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, product_barcode: e.target.value.replace(/\s/g, '') }))
-                }
-                inputMode="numeric"
-                placeholder="Напр., 4820123456789"
-              />
-            </Field>
-            <Field label="Бренд" required>
-              <Select
-                value={form.brand_id}
-                onChange={(e) => {
-                  const brandId = e.target.value
-                  setForm((f) => {
-                    const catalogProduct = data.products.find(
-                      (p) =>
-                        p.is_active &&
-                        ((f.product_barcode && p.sku === f.product_barcode) ||
-                          p.name === f.product_name),
-                    )
-                    const keepProduct = !catalogProduct || !brandId || catalogProduct.brand_id === brandId
-                    return {
-                      ...f,
-                      brand_id: brandId,
-                      product_name: keepProduct ? f.product_name : '',
-                      product_barcode: keepProduct ? f.product_barcode : '',
-                    }
-                  })
-                }}
-              >
-                <option value="">Оберіть…</option>
-                {data.brands.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Номер партії" required>
-              <Input
-                value={form.batch_number}
-                onChange={(e) => setForm((f) => ({ ...f, batch_number: e.target.value }))}
-              />
-            </Field>
-            <Field label="Група скарги" required>
-              <Select
-                value={form.complaint_group_id}
-                onChange={(e) => setForm((f) => ({ ...f, complaint_group_id: e.target.value }))}
-              >
-                <option value="">Оберіть…</option>
-                {data.groups
-                  .filter((g) => g.is_active)
-                  .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'uk'))
-                  .map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name}
-                    </option>
-                  ))}
-              </Select>
-            </Field>
-            <Field label="Критичність" required>
-              <Select
-                value={form.severity_id}
-                onChange={(e) => setForm((f) => ({ ...f, severity_id: e.target.value }))}
-              >
-                <option value="">Оберіть…</option>
-                {data.severities
-                  .filter((s) => s.is_active)
-                  .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'uk'))
-                  .map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-              </Select>
-            </Field>
-            <Field label="Статус" required>
-              <Select
-                value={form.status_id}
-                onChange={(e) => setForm((f) => ({ ...f, status_id: e.target.value }))}
-              >
-                <option value="">Оберіть…</option>
-                {data.statuses
-                  .filter((s) => s.is_active)
-                  .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'uk'))
-                  .map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-              </Select>
-            </Field>
-          </div>
-          <Field label="Суть претензії" required>
-            <Textarea
-              rows={4}
-              value={form.problem_description}
-              onChange={(e) => setForm((f) => ({ ...f, problem_description: e.target.value }))}
-            />
-          </Field>
+          <ComplaintFormFields
+            form={form}
+            setForm={setForm}
+            data={data}
+            allowNewNetwork
+          />
         </Card>
 
         <div className="space-y-4">
@@ -351,10 +191,6 @@ export function NewComplaintPage() {
       </form>
     </div>
   )
-}
-
-function normalizeRetailNetworkName(value: string): string {
-  return value.trim().replace(/\s+/g, ' ')
 }
 
 async function ensureRetailNetworkId(
