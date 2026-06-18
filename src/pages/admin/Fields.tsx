@@ -7,6 +7,7 @@ import { ConfirmDialog, Dialog } from '@/components/ui/dialog'
 import { insert, list, remove, update } from '@/lib/db'
 import { useToast } from '@/components/ui/toast'
 import type { EntityDefinition, FieldDefinition, FieldType } from '@/lib/types'
+import { QueryErrorState } from '@/components/ui/query-state'
 
 const FIELD_TYPES: { value: FieldType; label: string }[] = [
   { value: 'text', label: 'Текст' },
@@ -58,14 +59,23 @@ export function FieldsPage() {
   const [editing, setEditing] = useState<FormState | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<FieldDefinition | null>(null)
 
-  const { data: entities } = useQuery({
+  const entitiesQuery = useQuery({
     queryKey: ['entity_definitions'],
     queryFn: () => list('entity_definitions'),
   })
-  const { data: fields, refetch: refetchFields } = useQuery({
+  const fieldsQuery = useQuery({
     queryKey: ['field_definitions'],
     queryFn: () => list('field_definitions'),
   })
+  const { data: entities } = entitiesQuery
+  const { data: fields, refetch: refetchFields } = fieldsQuery
+  const initialError =
+    (entitiesQuery.isError && !entities) || (fieldsQuery.isError && !fields)
+  const refetchError =
+    (entitiesQuery.isRefetchError && !!entities) || (fieldsQuery.isRefetchError && !!fields)
+  const queryError = entitiesQuery.error ?? fieldsQuery.error
+  const retryQueries = () => Promise.all([entitiesQuery.refetch(), fieldsQuery.refetch()])
+  const queriesFetching = entitiesQuery.isFetching || fieldsQuery.isFetching
 
   if (entities && entities.length && !entityId) setEntityId(entities[0].id)
 
@@ -170,7 +180,25 @@ export function FieldsPage() {
         </div>
       </div>
 
-      {!fields ? (
+      {refetchError && (
+        <QueryErrorState
+          error={queryError}
+          onRetry={retryQueries}
+          isRetrying={queriesFetching}
+          title="Не вдалося оновити поля"
+          description="Показано останні успішно завантажені дані."
+          compact
+        />
+      )}
+
+      {initialError ? (
+        <QueryErrorState
+          error={queryError}
+          onRetry={retryQueries}
+          isRetrying={queriesFetching}
+          title="Не вдалося завантажити поля"
+        />
+      ) : fieldsQuery.isLoading || entitiesQuery.isLoading || !fields ? (
         <p className="text-sm text-muted-foreground">Завантаження…</p>
       ) : currentFields.length === 0 ? (
         <EmptyState title="Полів немає" />

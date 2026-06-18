@@ -20,6 +20,7 @@ import { useAuth } from '@/lib/auth'
 import { useToast } from '@/components/ui/toast'
 import { SeverityBadge, StatusBadge } from '@/components/Badges'
 import type { Complaint, ComplaintAttachment } from '@/lib/types'
+import { QueryErrorState } from '@/components/ui/query-state'
 
 export function ComplaintDetailsPage() {
   const { id } = useParams<{ id: string }>()
@@ -32,7 +33,15 @@ export function ComplaintDetailsPage() {
   const [confirmTouch, setConfirmTouch] = useState(false)
   const [touchingComplaint, setTouchingComplaint] = useState(false)
 
-  const { data, refetch, isLoading } = useQuery({
+  const {
+    data,
+    error,
+    refetch,
+    isLoading,
+    isError,
+    isFetching,
+    isRefetchError,
+  } = useQuery({
     queryKey: ['complaint', id],
     queryFn: async () => {
       if (!id) return null
@@ -54,6 +63,18 @@ export function ComplaintDetailsPage() {
     enabled: !!id,
   })
 
+  if (isError && !data) {
+    return (
+      <div className="p-4 md:p-6">
+        <QueryErrorState
+          error={error}
+          onRetry={refetch}
+          isRetrying={isFetching}
+          title="Не вдалося завантажити скаргу"
+        />
+      </div>
+    )
+  }
   if (isLoading || !data) {
     return <div className="p-6 text-sm text-muted-foreground">Завантаження…</div>
   }
@@ -74,6 +95,17 @@ export function ComplaintDetailsPage() {
 
   return (
     <div className="space-y-4 p-4 md:p-6">
+      {isRefetchError && (
+        <QueryErrorState
+          error={error}
+          onRetry={refetch}
+          isRetrying={isFetching}
+          title="Не вдалося оновити скаргу"
+          description="Показано останні успішно завантажені дані."
+          compact
+        />
+      )}
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => nav('/complaints')}>

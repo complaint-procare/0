@@ -25,6 +25,7 @@ import { padComplaintNumber } from '@/lib/utils'
 import type { Complaint, ComplaintAttachment } from '@/lib/types'
 import { useAuth } from '@/lib/auth'
 import { useToast } from '@/components/ui/toast'
+import { QueryErrorState } from '@/components/ui/query-state'
 
 const PAGE_SIZE = 50
 
@@ -39,7 +40,15 @@ export function ComplaintsPage() {
   const [columnsOpen, setColumnsOpen] = useState(false)
   const [page, setPage] = useState(1)
 
-  const { data, refetch, isLoading } = useQuery({
+  const {
+    data,
+    error,
+    refetch,
+    isLoading,
+    isError,
+    isFetching,
+    isRefetchError,
+  } = useQuery({
     queryKey: ['complaints-page'],
     queryFn: loadComplaintRegistryData,
   })
@@ -132,40 +141,62 @@ export function ComplaintsPage() {
         </div>
       </Card>
 
-      {isLoading && <p className="text-sm text-muted-foreground">Завантаження…</p>}
-
-      {!isLoading && filtered.length === 0 && (
-        <EmptyState
-          title="Скарг немає"
-          description="Створіть першу скаргу, щоб побачити її у реєстрі."
-          action={
-            <Button onClick={() => navigate('/complaints/new')}>
-              <Plus className="h-4 w-4" /> Нова скарга
-            </Button>
-          }
+      {isRefetchError && data && (
+        <QueryErrorState
+          error={error}
+          onRetry={refetch}
+          isRetrying={isFetching}
+          title="Не вдалося оновити реєстр"
+          description="Показано останні успішно завантажені дані."
+          compact
         />
       )}
 
-      {data && filtered.length > 0 && (
-        <ComplaintRegistryList
-          complaints={visibleComplaints}
-          fields={registryFields}
-          data={data}
-          countByComplaint={countByComplaint}
-          isAdmin={isAdmin}
-          onStatusChange={setStatusModal}
-          onDelete={setDeleteModal}
+      {isError && !data ? (
+        <QueryErrorState
+          error={error}
+          onRetry={refetch}
+          isRetrying={isFetching}
+          title="Не вдалося завантажити реєстр"
         />
-      )}
+      ) : (
+        <>
+          {isLoading && <p className="text-sm text-muted-foreground">Завантаження…</p>}
 
-      {filtered.length > PAGE_SIZE && (
-        <ComplaintRegistryPagination
-          page={page}
-          pageCount={pageCount}
-          total={filtered.length}
-          pageSize={PAGE_SIZE}
-          onPageChange={setPage}
-        />
+          {!isLoading && filtered.length === 0 && (
+            <EmptyState
+              title="Скарг немає"
+              description="Створіть першу скаргу, щоб побачити її у реєстрі."
+              action={
+                <Button onClick={() => navigate('/complaints/new')}>
+                  <Plus className="h-4 w-4" /> Нова скарга
+                </Button>
+              }
+            />
+          )}
+
+          {data && filtered.length > 0 && (
+            <ComplaintRegistryList
+              complaints={visibleComplaints}
+              fields={registryFields}
+              data={data}
+              countByComplaint={countByComplaint}
+              isAdmin={isAdmin}
+              onStatusChange={setStatusModal}
+              onDelete={setDeleteModal}
+            />
+          )}
+
+          {filtered.length > PAGE_SIZE && (
+            <ComplaintRegistryPagination
+              page={page}
+              pageCount={pageCount}
+              total={filtered.length}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+            />
+          )}
+        </>
       )}
 
       <ComplaintStatusDialog

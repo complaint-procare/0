@@ -7,6 +7,7 @@ import { ConfirmDialog, Dialog } from '@/components/ui/dialog'
 import { insert, list, update } from '@/lib/db'
 import { useToast } from '@/components/ui/toast'
 import type { EntityDefinition, EntityRecord } from '@/lib/types'
+import { QueryErrorState } from '@/components/ui/query-state'
 
 interface FormState {
   id?: string
@@ -38,7 +39,15 @@ export function EntitiesPage() {
   const [confirmDelete, setConfirmDelete] = useState<EntityDefinition | null>(null)
   const [recordsFor, setRecordsFor] = useState<EntityDefinition | null>(null)
 
-  const { data } = useQuery({
+  const {
+    data,
+    error,
+    refetch,
+    isLoading,
+    isError,
+    isFetching,
+    isRefetchError,
+  } = useQuery({
     queryKey: ['entity_definitions'],
     queryFn: () => list('entity_definitions'),
   })
@@ -111,7 +120,25 @@ export function EntitiesPage() {
         </Button>
       </div>
 
-      {!data ? (
+      {isRefetchError && data && (
+        <QueryErrorState
+          error={error}
+          onRetry={refetch}
+          isRetrying={isFetching}
+          title="Не вдалося оновити сутності"
+          description="Показано останні успішно завантажені дані."
+          compact
+        />
+      )}
+
+      {isError && !data ? (
+        <QueryErrorState
+          error={error}
+          onRetry={refetch}
+          isRetrying={isFetching}
+          title="Не вдалося завантажити сутності"
+        />
+      ) : isLoading || !data ? (
         <p className="text-sm text-muted-foreground">Завантаження…</p>
       ) : data.length === 0 ? (
         <EmptyState title="Сутностей немає" />
@@ -345,7 +372,14 @@ function EntityRecordsDialog({
   const qc = useQueryClient()
   const [name, setName] = useState('')
 
-  const { data } = useQuery({
+  const {
+    data,
+    error,
+    refetch,
+    isLoading,
+    isError,
+    isFetching,
+  } = useQuery({
     queryKey: ['entity_records', entity?.id],
     queryFn: async () => {
       if (!entity) return [] as EntityRecord[]
@@ -399,7 +433,17 @@ function EntityRecordsDialog({
               <Plus className="h-4 w-4" /> Додати
             </Button>
           </div>
-          {data && data.length > 0 ? (
+          {isError && !data ? (
+            <QueryErrorState
+              error={error}
+              onRetry={refetch}
+              isRetrying={isFetching}
+              title="Не вдалося завантажити записи"
+              compact
+            />
+          ) : isLoading || !data ? (
+            <p className="text-sm text-muted-foreground">Завантаження…</p>
+          ) : data.length > 0 ? (
             <ul className="divide-y divide-border">
               {data.map((r) => (
                 <li key={r.id} className="flex items-center justify-between gap-2 py-2 text-sm">

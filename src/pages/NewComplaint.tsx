@@ -15,6 +15,7 @@ import {
   normalizeRetailNetworkName,
   validateComplaintForm,
 } from '@/lib/complaint-form'
+import { QueryErrorState } from '@/components/ui/query-state'
 
 export function NewComplaintPage() {
   const { session } = useAuth()
@@ -22,7 +23,7 @@ export function NewComplaintPage() {
   const toast = useToast()
   const qc = useQueryClient()
 
-  const { data } = useQuery({
+  const { data, error, refetch, isLoading, isError, isFetching } = useQuery({
     queryKey: ['lookup-data'],
     queryFn: async () => {
       const [brands, products, networks, statuses, severities, groups, users] = await Promise.all([
@@ -42,7 +43,23 @@ export function NewComplaintPage() {
   const [files, setFiles] = useState<File[]>([])
   const [submitting, setSubmitting] = useState(false)
 
-  if (!data) return <div className="p-6 text-sm text-muted-foreground">Завантаження…</div>
+  if (isError && !data) {
+    return (
+      <div className="p-4 md:p-6">
+        <QueryErrorState
+          error={error}
+          onRetry={refetch}
+          isRetrying={isFetching}
+          title="Не вдалося підготувати форму скарги"
+          description="Не вдалося завантажити довідники для створення скарги."
+        />
+      </div>
+    )
+  }
+
+  if (isLoading || !data) {
+    return <div className="p-6 text-sm text-muted-foreground">Завантаження…</div>
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -9,6 +9,7 @@ import { supabaseEnabled } from '@/lib/supabase'
 import { useToast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 import { v4 as uuid } from 'uuid'
+import { QueryErrorState } from '@/components/ui/query-state'
 
 export interface CrudColumn<T> {
   key: keyof T | string
@@ -68,7 +69,15 @@ export function SimpleCrud<T extends { id: string; is_active?: boolean; name?: s
     )
   }
 
-  const { data } = useQuery({
+  const {
+    data,
+    error,
+    refetch,
+    isLoading,
+    isError,
+    isFetching,
+    isRefetchError,
+  } = useQuery({
     queryKey: [table],
     queryFn: () => list(table) as unknown as Promise<T[]>,
   })
@@ -240,7 +249,25 @@ export function SimpleCrud<T extends { id: string; is_active?: boolean; name?: s
         </div>
       )}
 
-      {!data ? (
+      {isRefetchError && data && (
+        <QueryErrorState
+          error={error}
+          onRetry={refetch}
+          isRetrying={isFetching}
+          title="Не вдалося оновити список"
+          description="Показано останні успішно завантажені дані."
+          compact
+        />
+      )}
+
+      {isError && !data ? (
+        <QueryErrorState
+          error={error}
+          onRetry={refetch}
+          isRetrying={isFetching}
+          title={`Не вдалося завантажити: ${title.toLowerCase()}`}
+        />
+      ) : isLoading || !data ? (
         <p className="text-sm text-muted-foreground">Завантаження…</p>
       ) : data.length === 0 ? (
         <EmptyState title="Записів немає" />

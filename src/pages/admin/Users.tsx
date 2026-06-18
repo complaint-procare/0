@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/toast'
 import { ROLE_LABELS, type Role, type User } from '@/lib/types'
 import { hashPin } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
+import { QueryErrorState } from '@/components/ui/query-state'
 
 interface FormState {
   id?: string
@@ -27,7 +28,15 @@ export function UsersPage() {
   const [editing, setEditing] = useState<FormState | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<User | null>(null)
 
-  const { data } = useQuery({ queryKey: ['users'], queryFn: () => list('users') })
+  const {
+    data,
+    error,
+    refetch,
+    isLoading,
+    isError,
+    isFetching,
+    isRefetchError,
+  } = useQuery({ queryKey: ['users'], queryFn: () => list('users') })
 
   const refresh = () => qc.invalidateQueries({ queryKey: ['users'] })
 
@@ -97,7 +106,25 @@ export function UsersPage() {
         </Button>
       </div>
 
-      {!data ? (
+      {isRefetchError && data && (
+        <QueryErrorState
+          error={error}
+          onRetry={refetch}
+          isRetrying={isFetching}
+          title="Не вдалося оновити користувачів"
+          description="Показано останні успішно завантажені дані."
+          compact
+        />
+      )}
+
+      {isError && !data ? (
+        <QueryErrorState
+          error={error}
+          onRetry={refetch}
+          isRetrying={isFetching}
+          title="Не вдалося завантажити користувачів"
+        />
+      ) : isLoading || !data ? (
         <p className="text-sm text-muted-foreground">Завантаження…</p>
       ) : data.length === 0 ? (
         <EmptyState title="Користувачів немає" />

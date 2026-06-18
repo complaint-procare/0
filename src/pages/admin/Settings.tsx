@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth'
 import { useToast } from '@/components/ui/toast'
 import { formatDate, padComplaintNumber } from '@/lib/utils'
 import { ConfirmDialog } from '@/components/ui/dialog'
+import { QueryErrorState } from '@/components/ui/query-state'
 
 interface DriveConnection {
   connected: boolean
@@ -37,14 +38,24 @@ export function SettingsPage() {
   const [confirmResetCounter, setConfirmResetCounter] = useState(false)
   const [resettingCounter, setResettingCounter] = useState(false)
 
-  const { data, isLoading } = useQuery({
+  const {
+    data,
+    error: driveError,
+    refetch: refetchDrive,
+    isLoading,
+    isError: isDriveError,
+    isFetching: isDriveFetching,
+  } = useQuery({
     queryKey: ['app_setting', 'drive.connection'],
     queryFn: async () => (await getSetting('drive.connection')) ?? null,
   })
   const {
     data: counter,
+    error: counterError,
+    refetch: refetchCounter,
     isLoading: isCounterLoading,
     isError: isCounterError,
+    isFetching: isCounterFetching,
   } = useQuery({
     queryKey: ['complaint_number_counter'],
     queryFn: getComplaintCounter,
@@ -153,9 +164,14 @@ export function SettingsPage() {
         {isCounterLoading ? (
           <p className="text-sm text-muted-foreground">Завантаження лічильника…</p>
         ) : isCounterError ? (
-          <p className="text-sm text-destructive">
-            Не вдалося завантажити стан лічильника. Перевірте, чи застосована остання міграція Supabase.
-          </p>
+          <QueryErrorState
+            error={counterError}
+            onRetry={refetchCounter}
+            isRetrying={isCounterFetching}
+            title="Не вдалося завантажити стан лічильника"
+            description="Перевірте, чи застосована остання міграція Supabase."
+            compact
+          />
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Info
@@ -197,6 +213,14 @@ export function SettingsPage() {
 
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Завантаження…</p>
+        ) : isDriveError ? (
+          <QueryErrorState
+            error={driveError}
+            onRetry={refetchDrive}
+            isRetrying={isDriveFetching}
+            title="Не вдалося завантажити стан Google Drive"
+            compact
+          />
         ) : isConnected && conn ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Info label="Акаунт Google" value={conn.email} />

@@ -4,9 +4,16 @@ import { ProductsExcelImport } from '@/components/admin/ProductsExcelImport'
 import { Field, Input, Select } from '@/components/ui/primitives'
 import type { Product } from '@/lib/types'
 import { list } from '@/lib/db'
+import { QueryErrorState } from '@/components/ui/query-state'
 
 export function ProductsPage() {
-  const { data: brands } = useQuery({
+  const {
+    data: brands,
+    error,
+    refetch,
+    isError,
+    isFetching,
+  } = useQuery({
     queryKey: ['brands'],
     queryFn: () => list('brands'),
   })
@@ -16,7 +23,20 @@ export function ProductsPage() {
     brands?.find((b) => b.id === id)?.name ?? '—'
 
   return (
-    <SimpleCrud<Product>
+    <div>
+      {isError && (
+        <div className="px-4 pt-4 md:px-6 md:pt-6">
+          <QueryErrorState
+            error={error}
+            onRetry={refetch}
+            isRetrying={isFetching}
+            title="Не вдалося завантажити бренди"
+            description="Продукти доступні, але назви та вибір брендів можуть бути неповними."
+            compact
+          />
+        </div>
+      )}
+      <SimpleCrud<Product>
       title="Продукти"
       table="products"
       requireSupabase
@@ -79,6 +99,7 @@ export function ProductsPage() {
           </div>
         </div>
       )}
-    />
+      />
+    </div>
   )
 }

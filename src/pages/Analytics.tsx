@@ -27,11 +27,20 @@ import {
   type AnalyticsFilters,
   type AnalyticsPeriod,
 } from '@/components/analytics/analytics-types'
+import { QueryErrorState } from '@/components/ui/query-state'
 
 export function AnalyticsPage() {
   const [period, setPeriod] = useState<AnalyticsPeriod>('day')
   const [filters, setFilters] = useState<AnalyticsFilters>(EMPTY_ANALYTICS_FILTERS)
-  const { data, isLoading } = useQuery({
+  const {
+    data,
+    error,
+    refetch,
+    isLoading,
+    isError,
+    isFetching,
+    isRefetchError,
+  } = useQuery({
     queryKey: ['analytics-data'],
     queryFn: loadAnalyticsData,
   })
@@ -48,6 +57,19 @@ export function AnalyticsPage() {
     () => computeAnalyticsBuckets(filtered, period),
     [filtered, period],
   )
+
+  if (isError && !data) {
+    return (
+      <div className="p-4 md:p-6">
+        <QueryErrorState
+          error={error}
+          onRetry={refetch}
+          isRetrying={isFetching}
+          title="Не вдалося завантажити аналітику"
+        />
+      </div>
+    )
+  }
 
   if (isLoading || !data) {
     return (
@@ -85,6 +107,17 @@ export function AnalyticsPage() {
         data={data}
         productOptions={productOptions}
       />
+
+      {isRefetchError && (
+        <QueryErrorState
+          error={error}
+          onRetry={refetch}
+          isRetrying={isFetching}
+          title="Не вдалося оновити аналітику"
+          description="Показано останні успішно завантажені дані."
+          compact
+        />
+      )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <AnalyticsStatCard label="Всього" value={stats.total} delta={stats.deltaTotal} />
