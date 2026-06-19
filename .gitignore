@@ -28,3 +28,6 @@ secrets.local.*
 
 # Local agent memory
 AGENT.md
+
+# Local documentation
+README.md
