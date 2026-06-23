@@ -173,6 +173,11 @@ export interface ComplaintSummaryRow {
   synced_at: string
 }
 
+export interface ComplaintViewCount {
+  complaint_id: string
+  unique_views: number
+}
+
 export interface ComplaintAttachment {
   id: string
   complaint_id: string

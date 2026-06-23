@@ -3,6 +3,7 @@ import type {
   ComplaintAttachment,
   ComplaintGroup,
   ComplaintStatus,
+  ComplaintViewCount,
   FieldDefinition,
   SeverityLevel,
 } from '@/lib/types'
@@ -42,6 +43,7 @@ export interface ComplaintRegistryData {
   networks: { id: string; name: string }[]
   users: { id: string; full_name: string }[]
   attachments: ComplaintAttachment[]
+  viewCounts: ComplaintViewCount[]
   entities: { id: string; entity_key: string }[]
   fields: FieldDefinition[]
 }

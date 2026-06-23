@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Paperclip, Trash2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Eye, Paperclip, Trash2 } from 'lucide-react'
 import { Button, Card } from '@/components/ui/primitives'
 import { SeverityBadge, StatusBadge } from '@/components/Badges'
 import { formatDate, formatPhone, padComplaintNumber } from '@/lib/utils'
@@ -11,6 +11,7 @@ export function ComplaintRegistryList({
   fields,
   data,
   countByComplaint,
+  viewsByComplaint,
   isAdmin,
   onStatusChange,
   onDelete,
@@ -19,6 +20,7 @@ export function ComplaintRegistryList({
   fields: RegistryField[]
   data: ComplaintRegistryData
   countByComplaint: Map<string, number>
+  viewsByComplaint: Map<string, number>
   isAdmin: boolean
   onStatusChange: (complaint: Complaint) => void
   onDelete: (complaint: Complaint) => void
@@ -68,6 +70,7 @@ export function ComplaintRegistryList({
                       <RegistryActions
                         complaint={complaint}
                         isAdmin={isAdmin}
+                        viewsByComplaint={viewsByComplaint}
                         onDelete={onDelete}
                       />
                     </td>
@@ -104,7 +107,10 @@ export function ComplaintRegistryList({
               <Link to={`/complaints/${complaint.id}`} className="btn btn-outline btn-sm">
                 Відкрити
               </Link>
-              {isAdmin && <DeleteButton onClick={() => onDelete(complaint)} />}
+              <div className="flex items-center gap-1">
+                <ViewCount complaintId={complaint.id} counts={viewsByComplaint} />
+                {isAdmin && <DeleteButton onClick={() => onDelete(complaint)} />}
+              </div>
             </div>
           </Card>
         ))}
@@ -161,17 +167,40 @@ export function ComplaintRegistryPagination({
 function RegistryActions({
   complaint,
   isAdmin,
+  viewsByComplaint,
   onDelete,
 }: {
   complaint: Complaint
   isAdmin: boolean
+  viewsByComplaint: Map<string, number>
   onDelete: (complaint: Complaint) => void
 }) {
   return (
-    <div className="flex justify-end gap-1">
+    <div className="flex items-center justify-end gap-1">
       <Link to={`/complaints/${complaint.id}`} className="btn btn-outline btn-sm">Відкрити</Link>
+      <ViewCount complaintId={complaint.id} counts={viewsByComplaint} />
       {isAdmin && <DeleteButton onClick={() => onDelete(complaint)} />}
     </div>
+  )
+}
+
+function ViewCount({
+  complaintId,
+  counts,
+}: {
+  complaintId: string
+  counts: Map<string, number>
+}) {
+  const count = counts.get(complaintId) ?? 0
+  return (
+    <span
+      className="inline-flex h-8 min-w-10 items-center justify-center gap-1 rounded-full border border-border bg-surface px-2 text-xs text-muted-foreground"
+      title={`Унікальні перегляди: ${count}`}
+      aria-label={`Унікальні перегляди: ${count}`}
+    >
+      <Eye className="h-3.5 w-3.5" />
+      {count}
+    </span>
   )
 }
 

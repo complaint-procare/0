@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertCircle, ArrowLeft, Pencil, RefreshCw, Save, X } from 'lucide-react'
@@ -13,6 +13,7 @@ import {
   deleteAttachment,
   getAttachments,
   getChangeLog,
+  recordComplaintView,
   requestComplaintResend,
   updateComplaint,
 } from '@/lib/complaints'
@@ -62,6 +63,27 @@ export function ComplaintDetailsPage() {
     },
     enabled: !!id,
   })
+
+  useEffect(() => {
+    const complaintId = data?.complaint?.id
+    const viewerId = session?.user_id
+    if (!complaintId || !viewerId) return
+
+    let active = true
+    recordComplaintView(complaintId, viewerId)
+      .then(() => {
+        if (active) {
+          void queryClient.invalidateQueries({ queryKey: ['complaints-page'] })
+        }
+      })
+      .catch((error) => {
+        console.warn('Не вдалося записати перегляд скарги', error)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [data?.complaint?.id, queryClient, session?.user_id])
 
   if (isError && !data) {
     return (

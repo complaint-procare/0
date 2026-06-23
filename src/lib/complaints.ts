@@ -11,6 +11,7 @@ import type {
   Complaint,
   ComplaintAttachment,
   ComplaintChangeLog,
+  ComplaintViewCount,
 } from './types'
 
 export interface CreateComplaintInput {
@@ -173,6 +174,30 @@ export async function updateComplaint(input: UpdateComplaintInput): Promise<Comp
     }
   }
   return next
+}
+
+export async function recordComplaintView(complaintId: string, viewerId: string): Promise<void> {
+  if (!supabase) throw new Error('Supabase is not configured')
+
+  const { error } = await supabase.rpc('record_complaint_view', {
+    complaint_uuid: complaintId,
+    viewer_uuid: viewerId,
+  })
+  if (error) throw error
+}
+
+export async function getComplaintViewCounts(): Promise<ComplaintViewCount[]> {
+  if (!supabase) throw new Error('Supabase is not configured')
+
+  const { data, error } = await supabase.rpc('get_complaint_view_counts')
+  if (error) {
+    if (error.code === '42883' || error.code === 'PGRST202') return []
+    throw error
+  }
+  return (data ?? []).map((row: { complaint_id: string; unique_views: number | string }) => ({
+    complaint_id: String(row.complaint_id),
+    unique_views: Number(row.unique_views),
+  }))
 }
 
 export async function requestComplaintResend(complaintId: string): Promise<void> {

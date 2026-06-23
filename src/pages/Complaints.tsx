@@ -21,6 +21,7 @@ import {
   type ComplaintRegistryFilters,
   type RegistryField,
 } from '@/components/complaints/registry-types'
+import { getComplaintViewCounts } from '@/lib/complaints'
 import { padComplaintNumber } from '@/lib/utils'
 import type { Complaint, ComplaintAttachment } from '@/lib/types'
 import { useAuth } from '@/lib/auth'
@@ -59,6 +60,10 @@ export function ComplaintsPage() {
   )
   const countByComplaint = useMemo(
     () => countAttachments(data?.attachments ?? []),
+    [data],
+  )
+  const viewsByComplaint = useMemo(
+    () => countUniqueViews(data?.viewCounts ?? []),
     [data],
   )
   const registryFields = useMemo(
@@ -181,6 +186,7 @@ export function ComplaintsPage() {
               fields={registryFields}
               data={data}
               countByComplaint={countByComplaint}
+              viewsByComplaint={viewsByComplaint}
               isAdmin={isAdmin}
               onStatusChange={setStatusModal}
               onDelete={setDeleteModal}
@@ -241,20 +247,44 @@ export function ComplaintsPage() {
 }
 
 async function loadComplaintRegistryData(): Promise<ComplaintRegistryData> {
-  const [complaints, statuses, severities, groups, brands, networks, users, attachments, entities, fields] =
-    await Promise.all([
-      list('complaints'),
-      list('complaint_statuses'),
-      list('severity_levels'),
-      list('complaint_groups'),
-      list('brands'),
-      list('retail_networks'),
-      list('users'),
-      list('complaint_attachments'),
-      list('entity_definitions'),
-      list('field_definitions'),
-    ])
-  return { complaints, statuses, severities, groups, brands, networks, users, attachments, entities, fields }
+  const [
+    complaints,
+    statuses,
+    severities,
+    groups,
+    brands,
+    networks,
+    users,
+    attachments,
+    viewCounts,
+    entities,
+    fields,
+  ] = await Promise.all([
+    list('complaints'),
+    list('complaint_statuses'),
+    list('severity_levels'),
+    list('complaint_groups'),
+    list('brands'),
+    list('retail_networks'),
+    list('users'),
+    list('complaint_attachments'),
+    getComplaintViewCounts(),
+    list('entity_definitions'),
+    list('field_definitions'),
+  ])
+  return {
+    complaints,
+    statuses,
+    severities,
+    groups,
+    brands,
+    networks,
+    users,
+    attachments,
+    viewCounts,
+    entities,
+    fields,
+  }
 }
 
 function filterRegistryComplaints(
@@ -287,6 +317,10 @@ function filterRegistryComplaints(
       return true
     })
     .sort((a, b) => b.number - a.number)
+}
+
+function countUniqueViews(viewCounts: { complaint_id: string; unique_views: number }[]) {
+  return new Map(viewCounts.map((row) => [row.complaint_id, row.unique_views]))
 }
 
 function countAttachments(attachments: ComplaintAttachment[]) {

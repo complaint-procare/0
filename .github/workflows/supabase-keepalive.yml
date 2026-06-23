@@ -1,0 +1,36 @@
+name: Keep Supabase active
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+      timezone: "Europe/Kyiv"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+    steps:
+      - name: Validate Supabase configuration
+        run: |
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_ANON_KEY"
+
+      - name: Run a lightweight database query
+        run: |
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 3 \
+            --retry-all-errors \
+            --output /dev/null \
+            "$SUPABASE_URL/rest/v1/complaints?select=id&limit=1" \
+            --header "apikey: $SUPABASE_ANON_KEY" \
+            --header "Authorization: Bearer $SUPABASE_ANON_KEY"
