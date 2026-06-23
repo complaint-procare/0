@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertCircle, ArrowLeft, Pencil, RefreshCw, X } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Pencil, RefreshCw, Save, X } from 'lucide-react'
 import { getById, list } from '@/lib/db'
-import { Button, Card } from '@/components/ui/primitives'
+import { Button, Card, Textarea } from '@/components/ui/primitives'
 import { ConfirmDialog } from '@/components/ui/dialog'
 import { ComplaintEditor } from '@/components/complaints/ComplaintEditor'
 import { ComplaintAttachments } from '@/components/complaints/ComplaintAttachments'
@@ -192,7 +192,15 @@ export function ComplaintDetailsPage() {
               onCancel={() => setEditing(false)}
             />
           ) : (
-            <ComplaintSummary complaint={complaint} data={data} />
+            <ComplaintSummary
+              complaint={complaint}
+              data={data}
+              canEditResolution={!isClosed}
+              onResolutionSaved={async () => {
+                await refetch()
+                await queryClient.invalidateQueries({ queryKey: ['complaints-page'] })
+              }}
+            />
           )}
 
           <ComplaintAttachments
@@ -261,6 +269,8 @@ export function ComplaintDetailsPage() {
 function ComplaintSummary({
   complaint,
   data,
+  canEditResolution,
+  onResolutionSaved,
 }: {
   complaint: Complaint
   data: {
@@ -269,6 +279,8 @@ function ComplaintSummary({
     brands: { id: string; name: string }[]
     groups: { id: string; name: string }[]
   }
+  canEditResolution: boolean
+  onResolutionSaved: () => void | Promise<void>
 }) {
   return (
     <Card padding={false}>
@@ -292,9 +304,118 @@ function ComplaintSummary({
       </div>
       <div className="grid grid-cols-1 divide-y divide-border border-t border-border">
         <DetailRow label="Суть претензії" value={complaint.problem_description} multiline />
-        <DetailRow label="Рішення / Відповідь" value={complaint.resolution_response} multiline />
+        <EditableResolutionRow
+          key={complaint.id}
+          complaint={complaint}
+          canEdit={canEditResolution}
+          onSaved={onResolutionSaved}
+        />
       </div>
     </Card>
+  )
+}
+
+function EditableResolutionRow({
+  complaint,
+  canEdit,
+  onSaved,
+}: {
+  complaint: Complaint
+  canEdit: boolean
+  onSaved: () => void | Promise<void>
+}) {
+  const { session } = useAuth()
+  const toast = useToast()
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(complaint.resolution_response)
+  const [saving, setSaving] = useState(false)
+
+  const startEditing = () => {
+    setValue(complaint.resolution_response)
+    setEditing(true)
+  }
+
+  const save = async () => {
+    if (!session) return
+    setSaving(true)
+    try {
+      await updateComplaint({
+        id: complaint.id,
+        actor_id: session.user_id,
+        patch: { resolution_response: value.trim() },
+      })
+      await onSaved()
+      setEditing(false)
+      toast.show('Рішення / відповідь збережено', 'success')
+    } catch (error) {
+      toast.show((error as Error).message, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="p-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Рішення / Відповідь
+        </p>
+        {canEdit && !editing && (
+          <button
+            type="button"
+            onClick={startEditing}
+            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
+            aria-label="Редагувати рішення або відповідь"
+            title="Редагувати"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+
+      {editing ? (
+        <div className="mt-2 space-y-2">
+          <Textarea
+            autoFocus
+            rows={4}
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            onKeyDown={(event) => {
+              if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+                event.preventDefault()
+                void save()
+              }
+            }}
+            disabled={saving}
+            placeholder="Введіть рішення або відповідь…"
+          />
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setEditing(false)}
+              disabled={saving}
+            >
+              <X className="h-3.5 w-3.5" /> Скасувати
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => void save()}
+              disabled={saving || value.trim() === complaint.resolution_response}
+            >
+              <Save className="h-3.5 w-3.5" />
+              {saving ? 'Збереження…' : 'Зберегти'}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <p className="mt-1 whitespace-pre-wrap text-sm">
+          {complaint.resolution_response || '—'}
+        </p>
+      )}
+    </div>
   )
 }
 

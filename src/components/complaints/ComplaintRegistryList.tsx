@@ -52,7 +52,13 @@ export function ComplaintRegistryList({
                         className={registryCellClass(field.field_key)}
                         title={registryTitle(field.field_key, complaint)}
                       >
-                        {renderRegistryValue(field, complaint, data, countByComplaint)}
+                        {renderRegistryValue(
+                          field,
+                          complaint,
+                          data,
+                          countByComplaint,
+                          onStatusChange,
+                        )}
                       </td>
                     ))}
                     <td className="px-3 py-2 text-center">
@@ -62,7 +68,6 @@ export function ComplaintRegistryList({
                       <RegistryActions
                         complaint={complaint}
                         isAdmin={isAdmin}
-                        onStatusChange={onStatusChange}
                         onDelete={onDelete}
                       />
                     </td>
@@ -82,7 +87,13 @@ export function ComplaintRegistryList({
                 <div key={field.field_key} className="contents">
                   <div className="text-muted-foreground">{registryLabel(field)}</div>
                   <div className={registryMobileValueClass(field.field_key)}>
-                    {renderRegistryValue(field, complaint, data, countByComplaint)}
+                    {renderRegistryValue(
+                      field,
+                      complaint,
+                      data,
+                      countByComplaint,
+                      onStatusChange,
+                    )}
                   </div>
                 </div>
               ))}
@@ -93,14 +104,7 @@ export function ComplaintRegistryList({
               <Link to={`/complaints/${complaint.id}`} className="btn btn-outline btn-sm">
                 Відкрити
               </Link>
-              <div className="flex gap-1">
-                <Button size="sm" variant="ghost" onClick={() => onStatusChange(complaint)}>
-                  Статус
-                </Button>
-                {isAdmin && (
-                  <DeleteButton onClick={() => onDelete(complaint)} />
-                )}
-              </div>
+              {isAdmin && <DeleteButton onClick={() => onDelete(complaint)} />}
             </div>
           </Card>
         ))}
@@ -157,20 +161,15 @@ export function ComplaintRegistryPagination({
 function RegistryActions({
   complaint,
   isAdmin,
-  onStatusChange,
   onDelete,
 }: {
   complaint: Complaint
   isAdmin: boolean
-  onStatusChange: (complaint: Complaint) => void
   onDelete: (complaint: Complaint) => void
 }) {
   return (
     <div className="flex justify-end gap-1">
       <Link to={`/complaints/${complaint.id}`} className="btn btn-outline btn-sm">Відкрити</Link>
-      <Button size="sm" variant="ghost" onClick={() => onStatusChange(complaint)}>
-        Змінити статус
-      </Button>
       {isAdmin && <DeleteButton onClick={() => onDelete(complaint)} />}
     </div>
   )
@@ -238,6 +237,7 @@ function renderRegistryValue(
   complaint: Complaint,
   data: ComplaintRegistryData,
   countByComplaint: Map<string, number>,
+  onStatusChange: (complaint: Complaint) => void,
 ) {
   const byId = (
     collection: { id: string; name?: string; full_name?: string }[],
@@ -265,7 +265,22 @@ function renderRegistryValue(
     case 'problem_description': return complaint.problem_description || '—'
     case 'resolution_response': return complaint.resolution_response || '—'
     case 'severity_id': return <SeverityBadge id={complaint.severity_id} levels={data.severities} />
-    case 'status_id': return <StatusBadge id={complaint.status_id} statuses={data.statuses} />
+    case 'status_id':
+      return (
+        <button
+          type="button"
+          onClick={() => onStatusChange(complaint)}
+          className="rounded-full transition-transform hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30"
+          aria-label={`Змінити статус скарги №${padComplaintNumber(complaint.number)}`}
+          title="Змінити статус"
+        >
+          <StatusBadge
+            id={complaint.status_id}
+            statuses={data.statuses}
+            className="cursor-pointer"
+          />
+        </button>
+      )
     case 'files':
     case 'attachments':
       return <AttachmentCount complaintId={complaint.id} counts={countByComplaint} />

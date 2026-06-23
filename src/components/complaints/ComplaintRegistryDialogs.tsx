@@ -40,8 +40,14 @@ export function ComplaintStatusDialog({
     <Dialog
       open={!!complaint}
       onClose={onClose}
-      title={complaint ? `Скарга #${padComplaintNumber(complaint.number)}` : ''}
-      description={closed ? 'Скарга закрита. Можна перевідкрити.' : 'Оберіть новий статус.'}
+      title="Змінити статус"
+      description={
+        complaint
+          ? closed
+            ? `Скарга #${padComplaintNumber(complaint.number)} закрита. Підтвердьте перевідкриття.`
+            : `Скарга #${padComplaintNumber(complaint.number)} · Поточний статус: ${currentStatus?.name ?? '—'}`
+          : undefined
+      }
       footer={
         <>
           <Button variant="outline" onClick={onClose}>Скасувати</Button>
@@ -83,7 +89,7 @@ export function ComplaintStatusDialog({
                 }
               }}
             >
-              Зберегти
+              Підтвердити
             </Button>
           )}
         </>
