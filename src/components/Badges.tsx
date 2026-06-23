@@ -29,21 +29,27 @@ export function StatusBadge({
   className?: string
 }) {
   const s = statuses.find((x) => x.id === id)
-  if (!s) return <span className="badge pill-neutral">—</span>
-  const style = colorToBadgeStyle(s.color)
+  if (!s) {
+    return (
+      <span className="badge badge-liquid-status pill-neutral">
+        <span className="relative z-10">—</span>
+      </span>
+    )
+  }
+  const style = colorToStatusBadgeStyle(s.color)
   if (style) {
     return (
-      <span className={cn('badge', className)} style={style}>
-        <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-current opacity-70" />
-        {s.name}
+      <span className={cn('badge badge-liquid-status', className)} style={style}>
+        <span className="relative z-10 mr-1 inline-block h-1.5 w-1.5 rounded-full bg-current opacity-80" />
+        <span className="relative z-10">{s.name}</span>
       </span>
     )
   }
   const tone = STATUS_TONE[s.name] ?? (s.is_closed ? 'pill-neutral' : 'pill-good')
   return (
-    <span className={cn('badge', tone, className)}>
-      <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-current opacity-70" />
-      {s.name}
+    <span className={cn('badge badge-liquid-status', tone, className)}>
+      <span className="relative z-10 mr-1 inline-block h-1.5 w-1.5 rounded-full bg-current opacity-80" />
+      <span className="relative z-10">{s.name}</span>
     </span>
   )
 }
@@ -59,12 +65,21 @@ export function SeverityBadge({
 }) {
   const s = levels.find((x) => x.id === id)
   if (!s) return <span className="badge pill-neutral">—</span>
-  const style = colorToBadgeStyle(s.color)
+  const style = colorToStatusBadgeStyle(s.color)
   if (style) {
     return <span className={cn('badge', className)} style={style}>{s.name}</span>
   }
   const tone = SEVERITY_TONE[s.name] ?? 'pill-neutral'
   return <span className={cn('badge', tone, className)}>{s.name}</span>
+}
+
+function colorToStatusBadgeStyle(color?: string | null): CSSProperties | undefined {
+  const style = colorToBadgeStyle(color)
+  if (!style) return undefined
+  return {
+    backgroundColor: style.backgroundColor,
+    color: style.color,
+  }
 }
 
 function colorToBadgeStyle(color?: string | null): CSSProperties | undefined {

@@ -104,8 +104,11 @@ export function ComplaintRegistryList({
               <div><AttachmentCount complaintId={complaint.id} counts={countByComplaint} /></div>
             </div>
             <div className="flex items-center justify-between gap-2 pt-2">
-              <Link to={`/complaints/${complaint.id}`} className="btn btn-outline btn-sm">
-                Відкрити
+              <Link
+                to={`/complaints/${complaint.id}`}
+                className="btn btn-liquid-glass btn-sm"
+              >
+                <span className="relative z-10">Відкрити</span>
               </Link>
               <div className="flex items-center gap-1">
                 <ViewCount complaintId={complaint.id} counts={viewsByComplaint} />
@@ -177,7 +180,12 @@ function RegistryActions({
 }) {
   return (
     <div className="flex items-center justify-end gap-1">
-      <Link to={`/complaints/${complaint.id}`} className="btn btn-outline btn-sm">Відкрити</Link>
+      <Link
+        to={`/complaints/${complaint.id}`}
+        className="btn btn-liquid-glass btn-sm"
+      >
+        <span className="relative z-10">Відкрити</span>
+      </Link>
       <ViewCount complaintId={complaint.id} counts={viewsByComplaint} />
       {isAdmin && <DeleteButton onClick={() => onDelete(complaint)} />}
     </div>
