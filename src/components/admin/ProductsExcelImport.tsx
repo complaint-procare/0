@@ -14,17 +14,21 @@ import { supabaseEnabled } from '@/lib/supabase'
 import type { Brand, Product } from '@/lib/types'
 
 interface ParsedRow {
+  externalId: string
   name: string
   sku: string
   brandName: string
-  warning?: string
 }
 
-const HEADER_ALIASES: Record<keyof ParsedRow, string[]> = {
+type ImportColumn = keyof ParsedRow
+
+type ProductImportMatch = Pick<Product, 'external_id' | 'brand_id' | 'name' | 'sku'>
+
+const HEADER_ALIASES: Record<ImportColumn, string[]> = {
+  externalId: ['id', 'ід', 'external id', 'product id', 'код товару', 'товар id'],
   name: ['назва', 'назва продукту', 'назва товару', 'name', 'product', 'product name', 'товар'],
   sku: ['sku', 'артикул', 'штрихкод', 'barcode', 'код', 'ean'],
   brandName: ['бренд', 'brand', 'марка', 'виробник'],
-  warning: [],
 }
 
 function normalizeKey(k: string): string {
@@ -35,9 +39,34 @@ function normalizeText(value: string | undefined | null): string {
   return String(value ?? '').trim().toLowerCase()
 }
 
-function productImportKey(product: Pick<Product, 'brand_id' | 'name' | 'sku'>): string {
+function productImportKeys(product: ProductImportMatch): string[] {
+  const keys: string[] = []
+  const externalId = normalizeText(product.external_id)
   const sku = normalizeText(product.sku)
-  return sku ? `sku:${sku}` : `name:${product.brand_id ?? ''}:${normalizeText(product.name)}`
+  const name = normalizeText(product.name)
+
+  if (externalId) keys.push('id:' + externalId)
+  if (sku) keys.push('sku:' + sku)
+  if (name) keys.push('name:' + (product.brand_id ?? '') + ':' + name)
+
+  return keys
+}
+
+function addProductToIndex(map: Map<string, Product>, product: Product) {
+  for (const key of productImportKeys(product)) {
+    if (!map.has(key)) map.set(key, product)
+  }
+}
+
+function findProductByImportKeys(
+  map: Map<string, Product>,
+  product: ProductImportMatch,
+): Product | undefined {
+  for (const key of productImportKeys(product)) {
+    const existing = map.get(key)
+    if (existing) return existing
+  }
+  return undefined
 }
 
 function detectColumn(headers: string[], aliases: string[]): number {
@@ -55,6 +84,7 @@ export function ProductsExcelImport() {
   const [rows, setRows] = useState<ParsedRow[]>([])
   const [fileName, setFileName] = useState<string>('')
   const [importing, setImporting] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [createMissingBrands, setCreateMissingBrands] = useState(true)
   const [deleteMissingProducts, setDeleteMissingProducts] = useState(false)
 
@@ -78,6 +108,7 @@ export function ProductsExcelImport() {
         return
       }
       const headers = (json[0] as unknown[]).map((h) => String(h ?? ''))
+      const idxExternalId = detectColumn(headers, HEADER_ALIASES.externalId)
       const idxName = detectColumn(headers, HEADER_ALIASES.name)
       const idxSku = detectColumn(headers, HEADER_ALIASES.sku)
       const idxBrand = detectColumn(headers, HEADER_ALIASES.brandName)
@@ -91,6 +122,7 @@ export function ProductsExcelImport() {
         const name = String(r[idxName] ?? '').trim()
         if (!name) continue
         parsed.push({
+          externalId: idxExternalId === -1 ? '' : String(r[idxExternalId] ?? '').trim(),
           name,
           sku: idxSku === -1 ? '' : String(r[idxSku] ?? '').trim(),
           brandName: idxBrand === -1 ? '' : String(r[idxBrand] ?? '').trim(),
@@ -102,7 +134,7 @@ export function ProductsExcelImport() {
       }
       setRows(parsed)
     } catch (e) {
-      toast.show(`Не вдалось прочитати файл: ${(e as Error).message}`, 'error')
+      toast.show('Не вдалося прочитати файл: ' + (e as Error).message, 'error')
     }
   }
 
@@ -120,7 +152,8 @@ export function ProductsExcelImport() {
       const brands = await list('brands')
       const brandByName = new Map(brands.map((b) => [b.name.toLowerCase(), b]))
       const existingProducts = await list('products')
-      const productByKey = new Map(existingProducts.map((p) => [productImportKey(p), p]))
+      const productByKey = new Map<string, Product>()
+      for (const product of existingProducts) addProductToIndex(productByKey, product)
       const touchedProductIds = new Set<string>()
       let createdBrands = 0
       let createdProducts = 0
@@ -150,23 +183,27 @@ export function ProductsExcelImport() {
             continue
           }
         }
-        const productDraft = {
+        const productDraft: Omit<Product, 'id'> = {
+          external_id: r.externalId || null,
           brand_id: brandId,
           name: r.name,
           sku: r.sku || null,
           is_active: true,
           created_at: now(),
         }
-        const key = productImportKey(productDraft)
 
-        const existingProduct = productByKey.get(key)
+        const existingProduct = findProductByImportKeys(productByKey, productDraft)
         if (existingProduct) {
-          await update('products', existingProduct.id, {
+          const patch = {
+            external_id: r.externalId || null,
             brand_id: brandId,
             name: r.name,
             sku: r.sku || null,
             is_active: true,
-          })
+          }
+          await update('products', existingProduct.id, patch)
+          const updatedProduct: Product = { ...existingProduct, ...patch }
+          addProductToIndex(productByKey, updatedProduct)
           touchedProductIds.add(existingProduct.id)
           updatedProducts++
         } else {
@@ -175,7 +212,7 @@ export function ProductsExcelImport() {
             id: uuid(),
           }
           await insert('products', product)
-          productByKey.set(key, product)
+          addProductToIndex(productByKey, product)
           touchedProductIds.add(product.id)
           createdProducts++
         }
@@ -192,11 +229,11 @@ export function ProductsExcelImport() {
 
       await qc.invalidateQueries({ queryKey: ['products'] })
       await qc.invalidateQueries({ queryKey: ['brands'] })
-      const parts = [`Нових продуктів: ${createdProducts}`]
-      if (updatedProducts) parts.push(`оновлено: ${updatedProducts}`)
-      if (deletedProducts) parts.push(`видалено: ${deletedProducts}`)
-      if (createdBrands) parts.push(`нових брендів: ${createdBrands}`)
-      if (skipped) parts.push(`пропущено: ${skipped}`)
+      const parts = ['Нових продуктів: ' + createdProducts]
+      if (updatedProducts) parts.push('оновлено: ' + updatedProducts)
+      if (deletedProducts) parts.push('видалено: ' + deletedProducts)
+      if (createdBrands) parts.push('нових брендів: ' + createdBrands)
+      if (skipped) parts.push('пропущено: ' + skipped)
       toast.show(parts.join(', '), 'success')
       reset()
       setOpen(false)
@@ -207,13 +244,50 @@ export function ProductsExcelImport() {
     }
   }
 
+  const exportProducts = async () => {
+    if (!supabaseEnabled) {
+      toast.show('Експорт товарів доступний тільки з активним підключенням до Supabase.', 'error')
+      return
+    }
+    setExporting(true)
+    try {
+      const XLSX = await loadXLSX()
+      const [products, brands] = await Promise.all([list('products'), list('brands')])
+      const brandById = new Map(brands.map((brand) => [brand.id, brand.name]))
+      const rowsForExport = [
+        ['id', 'Назва', 'SKU', 'Бренд', 'Активний'],
+        ...[...products]
+          .sort((a, b) => a.name.localeCompare(b.name, 'uk', { sensitivity: 'base' }))
+          .map((product) => [
+            product.external_id ?? '',
+            product.name,
+            product.sku ?? '',
+            product.brand_id ? brandById.get(product.brand_id) ?? '' : '',
+            product.is_active ? 'Так' : 'Ні',
+          ]),
+      ]
+      const ws = XLSX.utils.aoa_to_sheet(rowsForExport)
+      ws['!cols'] = [{ wch: 14 }, { wch: 58 }, { wch: 18 }, { wch: 22 }, { wch: 12 }]
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Products')
+      const date = new Date().toISOString().slice(0, 10)
+      XLSX.writeFile(wb, 'products-export-' + date + '.xlsx')
+      toast.show('Експортовано товарів: ' + products.length, 'success')
+    } catch (e) {
+      toast.show((e as Error).message, 'error')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const downloadTemplate = async () => {
     const XLSX = await loadXLSX()
     const ws = XLSX.utils.aoa_to_sheet([
-      ['Назва', 'SKU', 'Бренд'],
-      ['Кавовий скраб 200 мл', 'JB-CSCR-200', 'Joko Blend'],
-      ['Молочко для тіла 250 мл', 'JB-BMLK-250', 'Joko Blend'],
+      ['id', 'Назва', 'SKU', 'Бренд'],
+      ['123', 'Кавовий скраб 200 мл', 'JB-CSCR-200', 'Joko Blend'],
+      ['234', 'Молочко для тіла 250 мл', 'JB-BMLK-250', 'Joko Blend'],
     ])
+    ws['!cols'] = [{ wch: 14 }, { wch: 42 }, { wch: 18 }, { wch: 22 }]
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Products')
     XLSX.writeFile(wb, 'products-template.xlsx')
@@ -221,6 +295,9 @@ export function ProductsExcelImport() {
 
   return (
     <>
+      <Button variant="outline" onClick={exportProducts} disabled={exporting}>
+        <Download className="h-4 w-4" /> {exporting ? 'Експорт…' : 'Експорт'}
+      </Button>
       <Button
         variant="outline"
         onClick={() => {
@@ -243,7 +320,7 @@ export function ProductsExcelImport() {
           reset()
         }}
         title="Імпорт продуктів з Excel"
-        description="Підтримуються .xlsx, .xls, .csv. Очікувані колонки: Назва (обов'язково), SKU, Бренд."
+        description="Підтримуються .xlsx, .xls, .csv. Очікувані колонки: id (необов’язково), Назва (обов’язково), SKU, Бренд. Якщо id або SKU збігається з існуючим товаром — товар буде оновлено."
         size="lg"
         footer={
           <>
@@ -261,7 +338,7 @@ export function ProductsExcelImport() {
             </Button>
             <Button onClick={runImport} disabled={!rows.length || importing}>
               <Upload className="h-4 w-4" />
-              {importing ? 'Імпорт…' : `Імпортувати (${rows.length})`}
+              {importing ? 'Імпорт…' : 'Імпортувати (' + rows.length + ')'}
             </Button>
           </>
         }
@@ -276,7 +353,7 @@ export function ProductsExcelImport() {
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0]
-                if (f) handleFile(f)
+                if (f) void handleFile(f)
                 e.target.value = ''
               }}
             />
@@ -305,6 +382,7 @@ export function ProductsExcelImport() {
               <table className="min-w-full text-sm">
                 <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
+                    <th className="px-3 py-2">ID</th>
                     <th className="px-3 py-2">Назва</th>
                     <th className="px-3 py-2">SKU</th>
                     <th className="px-3 py-2">Бренд</th>
@@ -313,6 +391,7 @@ export function ProductsExcelImport() {
                 <tbody>
                   {rows.slice(0, 20).map((r, i) => (
                     <tr key={i} className="border-t border-border">
+                      <td className="px-3 py-1.5 font-mono text-xs">{r.externalId || '—'}</td>
                       <td className="px-3 py-1.5">{r.name}</td>
                       <td className="px-3 py-1.5 font-mono text-xs">{r.sku || '—'}</td>
                       <td className="px-3 py-1.5">{r.brandName || '—'}</td>

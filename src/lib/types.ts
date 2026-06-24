@@ -28,6 +28,7 @@ export interface Brand {
 
 export interface Product {
   id: string
+  external_id: string | null
   brand_id: string | null
   name: string
   sku: string | null

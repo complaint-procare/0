@@ -35,6 +35,8 @@ interface SimpleCrudProps<T extends { id: string; is_active?: boolean }> {
   beforeDelete?: (row: T) => Promise<string | null>
   headerExtra?: ReactNode
   requireSupabase?: boolean
+  searchPlaceholder?: string
+  getSearchText?: (row: T) => string
 }
 
 export function SimpleCrud<T extends { id: string; is_active?: boolean; name?: string }>(
@@ -51,6 +53,8 @@ export function SimpleCrud<T extends { id: string; is_active?: boolean; name?: s
     beforeDelete,
     headerExtra,
     requireSupabase,
+    searchPlaceholder,
+    getSearchText,
   } = props
   const toast = useToast()
   const qc = useQueryClient()
@@ -89,7 +93,7 @@ export function SimpleCrud<T extends { id: string; is_active?: boolean; name?: s
     const q = search.trim().toLowerCase()
     const filtered = q
       ? rows.filter((row) =>
-          columns.some((column) => getSearchValue(row, column).toLowerCase().includes(q)),
+          getRowSearchText(row, columns, getSearchText).toLowerCase().includes(q),
         )
       : rows
 
@@ -101,7 +105,7 @@ export function SimpleCrud<T extends { id: string; is_active?: boolean; name?: s
       const result = compareSortValues(getSortValue(a, column), getSortValue(b, column))
       return sort.dir === 'asc' ? result : -result
     })
-  }, [columns, data, search, sort])
+  }, [columns, data, getSearchText, search, sort])
 
   const selectedRows = useMemo(
     () => (data ?? []).filter((row) => selectedIds.has(row.id)),
@@ -224,7 +228,7 @@ export function SimpleCrud<T extends { id: string; is_active?: boolean; name?: s
                 className="pl-8"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder={`Пошук: ${title.toLowerCase()}`}
+                placeholder={searchPlaceholder ?? `Пошук: ${title.toLowerCase()}`}
               />
             </div>
           )}
@@ -469,6 +473,18 @@ function rowClassName(row: { is_active?: boolean }) {
     'border-b border-border last:border-0 hover:bg-muted/40',
     'is_active' in row && (row.is_active ? 'bg-emerald-500/10' : 'bg-red-500/10'),
   )
+}
+
+function getRowSearchText<T>(
+  row: T,
+  columns: CrudColumn<T>[],
+  getSearchText?: (row: T) => string,
+): string {
+  const values = [
+    getSearchText?.(row),
+    ...columns.map((column) => getSearchValue(row, column)),
+  ]
+  return values.filter((value): value is string => Boolean(value)).join(' ')
 }
 
 function getSearchValue<T>(row: T, column: CrudColumn<T>): string {
