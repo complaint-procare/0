@@ -30,8 +30,8 @@ export function uniqueProductNames(complaints: Complaint[], products: Product[])
 
 export function computeAnalyticsStats(complaints: Complaint[], statuses: ComplaintStatus[]) {
   const closedIds = new Set(statuses.filter((status) => status.is_closed).map((status) => status.id))
-  const openId = statuses.find((status) => status.name === 'Нова')?.id
-  const inProgressId = statuses.find((status) => status.name === 'В роботі')?.id
+  const openId = findStatusId(statuses, ['Новий', 'Нова'])
+  const inProgressId = findStatusId(statuses, ['В роботі'])
   const now = Date.now()
   const week = 7 * 24 * 60 * 60 * 1000
   const last7 = complaints.filter((complaint) => now - new Date(complaint.created_at).getTime() < week)
@@ -120,11 +120,17 @@ export function analyticsPeriodLabel(period: AnalyticsPeriod) {
 
 export function breakdownByStatus(complaints: Complaint[], statuses: ComplaintStatus[]) {
   const tones: Record<string, string> = {
+    'Новий': 'bg-emerald-400',
     'Нова': 'bg-emerald-400',
     'В роботі': 'bg-amber-400',
-    'Очікує відповідь клієнта': 'bg-amber-300',
-    'Очікує ВКЯ': 'bg-amber-500',
+    'В роботі виробництво': 'bg-amber-400',
+    'В роботі ВКЯ': 'bg-amber-400',
+    'В роботі продакт-менеджер': 'bg-amber-400',
+    'Очікує відповідь клієнта': 'bg-violet-400',
+    'Очікує ВКЯ': 'bg-violet-500',
+    'Закрито': 'bg-slate-400',
     'Закрита': 'bg-slate-400',
+    'Відхилено': 'bg-rose-400',
     'Відхилена': 'bg-rose-400',
   }
   return statuses
@@ -147,6 +153,10 @@ export function breakdownByBrand(complaints: Complaint[], brands: Brand[]) {
     .filter((row) => row.value > 0)
     .sort((a, b) => b.value - a.value)
     .slice(0, 8)
+}
+
+function findStatusId(statuses: ComplaintStatus[], names: string[]) {
+  return statuses.find((status) => names.includes(status.name))?.id
 }
 
 function isoWeekKey(value: Date) {

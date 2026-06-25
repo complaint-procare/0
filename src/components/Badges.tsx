@@ -3,11 +3,17 @@ import type { ComplaintStatus, SeverityLevel } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 const STATUS_TONE: Record<string, string> = {
+  'Новий': 'pill-good',
   'Нова': 'pill-good',
   'В роботі': 'pill-warn',
+  'В роботі виробництво': 'pill-warn',
+  'В роботі ВКЯ': 'pill-warn',
+  'В роботі продакт-менеджер': 'pill-warn',
   'Очікує відповідь клієнта': 'pill-warn',
   'Очікує ВКЯ': 'pill-warn',
+  'Закрито': 'pill-neutral',
   'Закрита': 'pill-neutral',
+  'Відхилено': 'pill-bad',
   'Відхилена': 'pill-bad',
 }
 
