@@ -24,8 +24,7 @@ insert into public.severity_levels (name, sort_order, color, is_active) values
   ('Інформаційна', 10, '#64748B', true),
   ('Низька',       20, '#059669', true),
   ('Середня',      30, '#D97706', true),
-  ('Висока',       40, '#EA580C', true),
-  ('Критична',     50, '#DC2626', true)
+  ('Висока',       40, '#EA580C', true)
 on conflict (name) do nothing;
 
 -- ============================================================

@@ -22,7 +22,6 @@ const SEVERITY_TONE: Record<string, string> = {
   'Низька': 'pill-good',
   'Середня': 'pill-warn',
   'Висока': 'pill-bad',
-  'Критична': 'pill-bad',
 }
 
 export function StatusBadge({
