@@ -41,6 +41,7 @@ type Tables = {
 export type TableName = keyof Tables
 
 const SESSION_KEY = '__auth_session__'
+const DEFAULT_BRAND_COLOR = '#64748B'
 
 function requireSupabase() {
   if (!supabase) {
@@ -55,7 +56,7 @@ export async function list<T extends TableName>(table: T): Promise<Tables[T][]> 
   const client = requireSupabase()
   const { data, error } = await client.from(table).select('*')
   if (error) throw error
-  return (data ?? []) as Tables[T][]
+  return normalizeRows(table, data ?? [])
 }
 
 export async function getById<T extends TableName>(
@@ -65,7 +66,7 @@ export async function getById<T extends TableName>(
   const client = requireSupabase()
   const { data, error } = await client.from(table).select('*').eq('id', id).maybeSingle()
   if (error) throw error
-  return (data ?? undefined) as Tables[T] | undefined
+  return data ? normalizeRow(table, data) : undefined
 }
 
 export async function insert<T extends TableName>(
@@ -74,8 +75,17 @@ export async function insert<T extends TableName>(
 ): Promise<Tables[T]> {
   const client = requireSupabase()
   const { data, error } = await client.from(table).insert(row as never).select('*').single()
-  if (error) throw error
-  return data as Tables[T]
+  if (!error) return normalizeRow(table, data)
+  if (isMissingBrandColorColumnError(table, error)) {
+    const { data: retryData, error: retryError } = await client
+      .from(table)
+      .insert(omitBrandColor(row) as never)
+      .select('*')
+      .single()
+    if (retryError) throw retryError
+    return normalizeRow(table, retryData)
+  }
+  throw error
 }
 
 export async function update<T extends TableName>(
@@ -90,8 +100,20 @@ export async function update<T extends TableName>(
     .eq('id', id)
     .select('*')
     .maybeSingle()
-  if (error) throw error
-  return (data ?? undefined) as Tables[T] | undefined
+  if (!error) return data ? normalizeRow(table, data) : undefined
+  if (isMissingBrandColorColumnError(table, error)) {
+    const fallbackPatch = omitBrandColor(patch)
+    if (Object.keys(fallbackPatch).length === 0) return getById(table, id)
+    const { data: retryData, error: retryError } = await client
+      .from(table)
+      .update(fallbackPatch as never)
+      .eq('id', id)
+      .select('*')
+      .maybeSingle()
+    if (retryError) throw retryError
+    return retryData ? normalizeRow(table, retryData) : undefined
+  }
+  throw error
 }
 
 export async function remove<T extends TableName>(table: T, id: string): Promise<boolean> {
@@ -127,6 +149,30 @@ export async function getSetting(key: string): Promise<AppSetting | undefined> {
     .maybeSingle()
   if (error) throw error
   return (data ?? undefined) as AppSetting | undefined
+}
+
+function normalizeRows<T extends TableName>(table: T, rows: unknown[]): Tables[T][] {
+  return rows.map((row) => normalizeRow(table, row))
+}
+
+function normalizeRow<T extends TableName>(table: T, row: unknown): Tables[T] {
+  if (table === 'brands' && row && typeof row === 'object' && !('color' in row)) {
+    return { ...(row as Record<string, unknown>), color: DEFAULT_BRAND_COLOR } as Tables[T]
+  }
+  return row as Tables[T]
+}
+
+function omitBrandColor<T extends TableName>(row: Partial<Tables[T]>) {
+  const { color: _color, ...rest } = row as Partial<Brand>
+  return rest
+}
+
+function isMissingBrandColorColumnError<T extends TableName>(table: T, error: { message?: string; code?: string }) {
+  return (
+    table === 'brands' &&
+    error.code === 'PGRST204' &&
+    /'color' column of 'brands'|Could not find the 'color' column/i.test(error.message ?? '')
+  )
 }
 
 export async function getSession(): Promise<AuthSession | null> {

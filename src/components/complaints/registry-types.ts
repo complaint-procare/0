@@ -5,6 +5,7 @@ import type {
   ComplaintStatus,
   ComplaintViewCount,
   FieldDefinition,
+  Brand,
   SeverityLevel,
 } from '@/lib/types'
 
@@ -39,7 +40,7 @@ export interface ComplaintRegistryData {
   statuses: ComplaintStatus[]
   severities: SeverityLevel[]
   groups: ComplaintGroup[]
-  brands: { id: string; name: string }[]
+  brands: Brand[]
   networks: { id: string; name: string }[]
   users: { id: string; full_name: string }[]
   attachments: ComplaintAttachment[]

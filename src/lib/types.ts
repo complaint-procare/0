@@ -22,6 +22,7 @@ export interface User {
 export interface Brand {
   id: string
   name: string
+  color: string
   is_active: boolean
   created_at: string
 }

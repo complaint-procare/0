@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Eye, Paperclip, Trash2 } from 'lucide-react'
 import { Button, Card } from '@/components/ui/primitives'
-import { SeverityBadge, StatusBadge } from '@/components/Badges'
+import { BrandBadge, SeverityBadge, StatusBadge } from '@/components/Badges'
 import { formatDate, formatPhone, padComplaintNumber } from '@/lib/utils'
 import type { Complaint, FieldDefinition } from '@/lib/types'
 import type { ComplaintRegistryData, RegistryField } from './registry-types'
@@ -247,6 +247,7 @@ function registryCellClass(fieldKey: string) {
   if (['created_at', 'source_type', 'client_phone', 'complaint_group_id'].includes(fieldKey)) {
     return `${base} whitespace-nowrap`
   }
+  if (fieldKey === 'brand_id') return `${base} whitespace-nowrap text-xs`
   if (fieldKey === 'problem_description' || fieldKey === 'resolution_response') {
     return `${base} max-w-[280px] truncate`
   }
@@ -294,7 +295,7 @@ function renderRegistryValue(
         : byId(data.networks, complaint.retail_network_id)
     case 'retail_network_id': return byId(data.networks, complaint.retail_network_id)
     case 'client_phone': return formatPhone(complaint.client_phone)
-    case 'brand_id': return byId(data.brands, complaint.brand_id)
+    case 'brand_id': return <BrandBadge id={complaint.brand_id} brands={data.brands} />
     case 'product_name': return complaint.product_name || '—'
     case 'product_barcode': return complaint.product_barcode || '—'
     case 'batch_number': return complaint.batch_number || '—'

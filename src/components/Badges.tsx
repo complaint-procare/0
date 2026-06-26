@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import type { ComplaintStatus, SeverityLevel } from '@/lib/types'
+import type { Brand, ComplaintStatus, SeverityLevel } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 const STATUS_TONE: Record<string, string> = {
@@ -76,6 +76,42 @@ export function SeverityBadge({
   }
   const tone = SEVERITY_TONE[s.name] ?? 'pill-neutral'
   return <span className={cn('badge', tone, className)}>{s.name}</span>
+}
+
+export function BrandBadge({
+  id,
+  brands,
+  className,
+}: {
+  id: string | null | undefined
+  brands: Pick<Brand, 'id' | 'name' | 'color'>[]
+  className?: string
+}) {
+  const brand = brands.find((x) => x.id === id)
+  if (!brand) return <span className="text-xs text-muted-foreground">—</span>
+  const style = colorToBrandGlassStyle(brand.color)
+  return (
+    <span
+      className={cn(
+        'badge brand-glass-badge max-w-[7.5rem] whitespace-nowrap px-2.5 py-0.5 text-[11px] font-normal leading-tight',
+        className,
+      )}
+      style={style}
+      title={brand.name}
+    >
+      <span className="truncate">{brand.name}</span>
+    </span>
+  )
+}
+
+function colorToBrandGlassStyle(color?: string | null): CSSProperties | undefined {
+  const rgb = hexToRgb(color)
+  if (!rgb) return undefined
+  const text = darken(rgb, 0.5)
+  return {
+    '--brand-badge-rgb': rgb.r + ' ' + rgb.g + ' ' + rgb.b,
+    '--brand-badge-text': text.r + ' ' + text.g + ' ' + text.b,
+  } as CSSProperties
 }
 
 function colorToStatusBadgeStyle(color?: string | null): CSSProperties | undefined {

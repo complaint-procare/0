@@ -171,6 +171,7 @@ export function ProductsExcelImport() {
             const newBrand: Brand = {
               id: uuid(),
               name: r.brandName,
+              color: '#64748B',
               is_active: true,
               created_at: now(),
             }
