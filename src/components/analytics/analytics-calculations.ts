@@ -1,5 +1,7 @@
 import type { Brand, Complaint, ComplaintStatus, Product } from '@/lib/types'
-import type { AnalyticsFilters, AnalyticsPeriod } from './analytics-types'
+import type { AnalyticsBrandSeries, AnalyticsBucket, AnalyticsFilters, AnalyticsPeriod } from './analytics-types'
+
+const DEFAULT_BRAND_COLOR = '#64748B'
 
 export function filterComplaints(complaints: Complaint[], filters: AnalyticsFilters) {
   return complaints.filter((complaint) => {
@@ -63,55 +65,78 @@ export function computeAnalyticsStats(complaints: Complaint[], statuses: Complai
   }
 }
 
-export function computeAnalyticsBuckets(complaints: Complaint[], period: AnalyticsPeriod) {
+export function computeAnalyticsBuckets(complaints: Complaint[], period: AnalyticsPeriod): AnalyticsBucket[] {
   const now = new Date()
-  const buckets: { label: string; value: number; isPeak?: boolean; key: string }[] = []
+  const buckets: AnalyticsBucket[] = []
+  const addBucket = (label: string, key: string) => {
+    buckets.push({ label, value: 0, key, brandCounts: {} })
+  }
 
   if (period === 'day') {
     for (let offset = 13; offset >= 0; offset--) {
       const date = new Date(now)
       date.setDate(date.getDate() - offset)
-      buckets.push({
-        label: `${date.getDate()}.${date.getMonth() + 1}`,
-        value: 0,
-        key: date.toISOString().slice(0, 10),
-      })
-    }
-    for (const complaint of complaints) {
-      const bucket = buckets.find((item) => item.key === complaint.created_at.slice(0, 10))
-      if (bucket) bucket.value++
+      addBucket(`${date.getDate()}.${date.getMonth() + 1}`, date.toISOString().slice(0, 10))
     }
   } else if (period === 'week') {
     for (let offset = 7; offset >= 0; offset--) {
       const date = new Date(now)
       date.setDate(date.getDate() - offset * 7)
       const key = isoWeekKey(date)
-      buckets.push({ label: `W${key.slice(-2)}`, value: 0, key })
-    }
-    for (const complaint of complaints) {
-      const bucket = buckets.find((item) => item.key === isoWeekKey(new Date(complaint.created_at)))
-      if (bucket) bucket.value++
+      addBucket(`W${key.slice(-2)}`, key)
     }
   } else {
     for (let offset = 11; offset >= 0; offset--) {
       const date = new Date(now.getFullYear(), now.getMonth() - offset, 1)
-      buckets.push({
-        label: monthShort(date.getMonth()),
-        value: 0,
-        key: `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`,
-      })
+      addBucket(
+        monthShort(date.getMonth()),
+        `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`,
+      )
     }
-    for (const complaint of complaints) {
-      const date = new Date(complaint.created_at)
-      const key = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`
-      const bucket = buckets.find((item) => item.key === key)
-      if (bucket) bucket.value++
+  }
+
+  const bucketByKey = new Map(buckets.map((bucket) => [bucket.key, bucket]))
+  for (const complaint of complaints) {
+    const date = new Date(complaint.created_at)
+    const key =
+      period === 'day'
+        ? complaint.created_at.slice(0, 10)
+        : period === 'week'
+          ? isoWeekKey(date)
+          : `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`
+    const bucket = bucketByKey.get(key)
+    if (!bucket) continue
+
+    bucket.value++
+    if (complaint.brand_id) {
+      bucket.brandCounts[complaint.brand_id] = (bucket.brandCounts[complaint.brand_id] ?? 0) + 1
     }
   }
 
   const max = Math.max(...buckets.map((bucket) => bucket.value))
   for (const bucket of buckets) bucket.isPeak = bucket.value === max && max > 0
   return buckets
+}
+
+export function computeBrandDynamics(
+  buckets: AnalyticsBucket[],
+  brands: Brand[],
+): AnalyticsBrandSeries[] {
+  return brands
+    .map((brand) => {
+      const values = buckets.map((bucket) => bucket.brandCounts[brand.id] ?? 0)
+      const total = values.reduce((sum, value) => sum + value, 0)
+      return {
+        brandId: brand.id,
+        label: brand.name,
+        color: normalizeHexColor(brand.color) ?? DEFAULT_BRAND_COLOR,
+        values,
+        total,
+      }
+    })
+    .filter((series) => series.total > 0)
+    .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label, 'uk'))
+    .slice(0, 6)
 }
 
 export function analyticsPeriodLabel(period: AnalyticsPeriod) {
@@ -149,6 +174,7 @@ export function breakdownByBrand(complaints: Complaint[], brands: Brand[]) {
     .map((brand) => ({
       label: brand.name,
       value: complaints.filter((complaint) => complaint.brand_id === brand.id).length,
+      color: normalizeHexColor(brand.color) ?? undefined,
     }))
     .filter((row) => row.value > 0)
     .sort((a, b) => b.value - a.value)

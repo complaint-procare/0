@@ -10,6 +10,22 @@ import type {
 
 export type AnalyticsPeriod = 'day' | 'week' | 'month'
 
+export interface AnalyticsBucket {
+  label: string
+  value: number
+  key: string
+  isPeak?: boolean
+  brandCounts: Record<string, number>
+}
+
+export interface AnalyticsBrandSeries {
+  brandId: string
+  label: string
+  color: string
+  values: number[]
+  total: number
+}
+
 export interface AnalyticsFilters {
   brandIds: string[]
   productNames: string[]

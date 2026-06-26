@@ -8,7 +8,7 @@ import {
   AnalyticsPeriodToggle,
 } from '@/components/analytics/AnalyticsControls'
 import {
-  AnalyticsBarChart,
+  AnalyticsSmoothBrandChart,
   AnalyticsBreakdownCard,
   AnalyticsStatCard,
 } from '@/components/analytics/AnalyticsCharts'
@@ -17,6 +17,7 @@ import {
   breakdownByBrand,
   breakdownByStatus,
   computeAnalyticsBuckets,
+  computeBrandDynamics,
   computeAnalyticsStats,
   filterComplaints,
   uniqueProductNames,
@@ -56,6 +57,10 @@ export function AnalyticsPage() {
   const buckets = useMemo(
     () => computeAnalyticsBuckets(filtered, period),
     [filtered, period],
+  )
+  const brandSeries = useMemo(
+    () => computeBrandDynamics(buckets, data?.brands ?? []),
+    [buckets, data?.brands],
   )
 
   if (isError && !data) {
@@ -141,7 +146,7 @@ export function AnalyticsPage() {
             <BarChart3 className="h-3.5 w-3.5" /> {analyticsPeriodLabel(period)}
           </div>
         </div>
-        <AnalyticsBarChart buckets={buckets} />
+        <AnalyticsSmoothBrandChart buckets={buckets} series={brandSeries} />
       </Card>
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
