@@ -36,7 +36,7 @@ export function StatusBadge({
   const s = statuses.find((x) => x.id === id)
   if (!s) {
     return (
-      <span className="badge badge-liquid-status pill-neutral">
+      <span className="badge badge-liquid-status pill-neutral whitespace-nowrap leading-none">
         <span className="relative z-10">—</span>
       </span>
     )
@@ -44,17 +44,17 @@ export function StatusBadge({
   const style = colorToStatusBadgeStyle(s.color)
   if (style) {
     return (
-      <span className={cn('badge badge-liquid-status', className)} style={style}>
-        <span className="relative z-10 mr-1 inline-block h-1.5 w-1.5 rounded-full bg-current opacity-80" />
-        <span className="relative z-10">{s.name}</span>
+      <span className={cn('badge badge-liquid-status whitespace-nowrap leading-none', className)} style={style}>
+        <span className="relative z-10 mr-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-80" />
+        <span className="relative z-10 whitespace-nowrap">{s.name}</span>
       </span>
     )
   }
   const tone = STATUS_TONE[s.name] ?? (s.is_closed ? 'pill-neutral' : 'pill-good')
   return (
-    <span className={cn('badge badge-liquid-status', tone, className)}>
-      <span className="relative z-10 mr-1 inline-block h-1.5 w-1.5 rounded-full bg-current opacity-80" />
-      <span className="relative z-10">{s.name}</span>
+    <span className={cn('badge badge-liquid-status whitespace-nowrap leading-none', tone, className)}>
+      <span className="relative z-10 mr-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-80" />
+      <span className="relative z-10 whitespace-nowrap">{s.name}</span>
     </span>
   )
 }
