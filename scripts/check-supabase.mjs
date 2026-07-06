@@ -109,6 +109,7 @@ const tables = [
   'complaint_attachments',
   'complaint_change_log',
   'app_settings',
+  'boxes',
 ]
 
 const result = {

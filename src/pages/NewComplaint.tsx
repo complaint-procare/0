@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth'
 import { insert, list } from '@/lib/db'
 import { Button, Card } from '@/components/ui/primitives'
 import { ComplaintFormFields } from '@/components/complaints/ComplaintFormFields'
-import { createComplaint } from '@/lib/complaints'
+import { createComplaint, requestComplaintResend } from '@/lib/complaints'
 import { useToast } from '@/components/ui/toast'
 import { bytesToReadable } from '@/lib/utils'
 import {
@@ -104,9 +104,18 @@ export function NewComplaintPage() {
         status_id: normalized.status_id,
         files,
       })
+      let integrationWarning: string | null = null
+      if (files.length) {
+        try {
+          await requestComplaintResend(c.id)
+        } catch (resendError) {
+          console.error('Failed to request complaint resend after initial attachments upload', resendError)
+          integrationWarning = 'Скаргу створено, але не вдалося повторно відправити її в інтеграцію після завантаження файлів.'
+        }
+      }
       await qc.invalidateQueries({ queryKey: ['complaints-page'] })
       await qc.invalidateQueries({ queryKey: ['lookup-data'] })
-      toast.show('Скаргу створено', 'success')
+      toast.show(integrationWarning ?? 'Скаргу створено', integrationWarning ? 'error' : 'success')
       nav(`/complaints/${c.id}`)
     } catch (err) {
       toast.show((err as Error).message, 'error')

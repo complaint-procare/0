@@ -44,6 +44,7 @@ function isGroup(e: NavEntry): e is NavGroup {
 const NAV: NavEntry[] = [
   { to: '/complaints', label: 'Скарги', icon: AlertCircle },
   { to: '/analytics', label: 'Аналітика', icon: BarChart3 },
+  { to: '/boxes', label: 'Коробки', icon: Package },
   {
     label: 'Налаштування',
     icon: Settings,

@@ -11,6 +11,7 @@ const routes = [
   'complaints',
   'complaints/new',
   'analytics',
+  'boxes',
   'settings',
   'settings/clients',
   'settings/brands',

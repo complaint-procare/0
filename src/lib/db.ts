@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import type {
   AppSetting,
   AuthSession,
+  BoxRecord,
   Brand,
   Client,
   Complaint,
@@ -36,6 +37,7 @@ type Tables = {
   complaint_attachments: ComplaintAttachment
   complaint_change_log: ComplaintChangeLog
   app_settings: AppSetting
+  boxes: BoxRecord
 }
 
 export type TableName = keyof Tables

@@ -221,6 +221,21 @@ export interface AppSetting {
   updated_by: string | null
 }
 
+export interface BoxRecord {
+  id?: string
+  source_row: number
+  article: string
+  name: string
+  length_cm: number
+  width_cm: number
+  height_cm: number
+  volume_cm3: number
+  original: string
+  note: string
+  is_active?: boolean
+  created_at?: string
+  updated_at?: string
+}
 export interface AuthSession {
   user_id: string
   full_name: string

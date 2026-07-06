@@ -24,6 +24,8 @@ function readEnvFile(filePath) {
 
 const localEnv = readEnvFile(path.join(root, '.env.local'))
 const env = { ...localEnv, ...process.env }
+const npxBin = process.platform === 'win32' ? 'npx.cmd' : 'npx'
+const spawnWithShell = process.platform === 'win32'
 
 const supabaseUrl = env.SUPABASE_URL || env.VITE_SUPABASE_URL
 const projectRef =
@@ -56,10 +58,11 @@ if (missing.length) {
 function run(label, args, options = {}) {
   console.log(`\n> ${label}`)
   return new Promise((resolve, reject) => {
-    const child = spawn('npx', ['supabase', ...args], {
+    const child = spawn(npxBin, ['supabase', ...args], {
       cwd: root,
       env,
       stdio: 'inherit',
+      shell: spawnWithShell,
       ...options,
     })
     child.on('exit', (code) => {

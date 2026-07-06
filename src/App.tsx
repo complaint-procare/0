@@ -7,6 +7,7 @@ import { ComplaintsPage } from '@/pages/Complaints'
 import { NewComplaintPage } from '@/pages/NewComplaint'
 import { ComplaintDetailsPage } from '@/pages/ComplaintDetails'
 import { AnalyticsPage } from '@/pages/Analytics'
+import { BoxesPage } from '@/pages/Boxes'
 import { ClientsPage } from '@/pages/admin/Clients'
 import { BrandsPage } from '@/pages/admin/Brands'
 import { ProductsPage } from '@/pages/admin/Products'
@@ -32,6 +33,7 @@ function ProtectedRoutes() {
       <Routes>
         <Route path="/complaints" element={<ComplaintsPage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/boxes" element={<BoxesPage />} />
         <Route path="/complaints/new" element={<NewComplaintPage />} />
         <Route path="/complaints/:id" element={<ComplaintDetailsPage />} />
 

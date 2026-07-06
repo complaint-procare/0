@@ -31,3 +31,6 @@ AGENT.md
 
 # Local documentation
 README.md
+
+# Imported standalone project; CRM keeps the adapted source in src/.
+BOX/
