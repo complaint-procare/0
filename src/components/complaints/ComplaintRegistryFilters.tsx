@@ -1,8 +1,14 @@
 import { useState, type Dispatch, type SetStateAction } from 'react'
 import { Filter } from 'lucide-react'
-import { Button, Input, Select } from '@/components/ui/primitives'
+import { Button, Input } from '@/components/ui/primitives'
 import { Dialog } from '@/components/ui/dialog'
+import { MultiSelect } from '@/components/ui/multi-select'
 import type { ComplaintRegistryData, ComplaintRegistryFilters } from './registry-types'
+
+const SOURCE_OPTIONS = [
+  { value: 'network', label: 'Тільки мережі' },
+  { value: 'client', label: 'Тільки клієнти' },
+]
 
 export function ComplaintRegistryFilterDialog({
   filters,
@@ -16,6 +22,8 @@ export function ComplaintRegistryFilterDialog({
   const [open, setOpen] = useState(false)
   if (!data) return null
 
+  const networkDisabled = filters.sourceTypes.length === 1 && filters.sourceTypes[0] === 'client'
+
   return (
     <>
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
@@ -23,76 +31,74 @@ export function ComplaintRegistryFilterDialog({
       </Button>
       <Dialog open={open} onClose={() => setOpen(false)} title="Фільтри" size="lg">
         <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
-          <Select
-            value={filters.statusId}
-            onChange={(event) => setFilters((current) => ({ ...current, statusId: event.target.value }))}
-          >
-            <option value="">Усі статуси</option>
-            {data.statuses.map((status) => (
-              <option key={status.id} value={status.id}>{status.name}</option>
-            ))}
-          </Select>
-          <Select
-            value={filters.severityId}
-            onChange={(event) => setFilters((current) => ({ ...current, severityId: event.target.value }))}
-          >
-            <option value="">Усі рівні критичності</option>
-            {data.severities.map((severity) => (
-              <option key={severity.id} value={severity.id}>{severity.name}</option>
-            ))}
-          </Select>
-          <Select
-            value={filters.groupId}
-            onChange={(event) => setFilters((current) => ({ ...current, groupId: event.target.value }))}
-          >
-            <option value="">Усі групи скарг</option>
-            {data.groups.map((group) => (
-              <option key={group.id} value={group.id}>{group.name}</option>
-            ))}
-          </Select>
-          <Select
-            value={filters.brandId}
-            onChange={(event) => setFilters((current) => ({ ...current, brandId: event.target.value }))}
-          >
-            <option value="">Усі бренди</option>
-            {data.brands.map((brand) => (
-              <option key={brand.id} value={brand.id}>{brand.name}</option>
-            ))}
-          </Select>
-          <Select
-            value={filters.sourceType}
-            onChange={(event) =>
+          <MultiSelect
+            options={data.statuses.map((status) => ({ value: status.id, label: status.name }))}
+            selected={filters.statusIds}
+            onChange={(statusIds) => setFilters((current) => ({ ...current, statusIds }))}
+            placeholder="Усі статуси"
+            searchPlaceholder="Пошук статусу..."
+            maxLabels={1}
+          />
+          <MultiSelect
+            options={data.severities.map((severity) => ({ value: severity.id, label: severity.name }))}
+            selected={filters.severityIds}
+            onChange={(severityIds) => setFilters((current) => ({ ...current, severityIds }))}
+            placeholder="Усі рівні критичності"
+            searchPlaceholder="Пошук критичності..."
+            maxLabels={1}
+          />
+          <MultiSelect
+            options={data.groups.map((group) => ({ value: group.id, label: group.name }))}
+            selected={filters.groupIds}
+            onChange={(groupIds) => setFilters((current) => ({ ...current, groupIds }))}
+            placeholder="Усі групи скарг"
+            searchPlaceholder="Пошук групи..."
+            maxLabels={1}
+          />
+          <MultiSelect
+            options={data.brands.map((brand) => ({ value: brand.id, label: brand.name }))}
+            selected={filters.brandIds}
+            onChange={(brandIds) => setFilters((current) => ({ ...current, brandIds }))}
+            placeholder="Усі бренди"
+            searchPlaceholder="Пошук бренду..."
+            maxLabels={1}
+          />
+          <MultiSelect
+            options={SOURCE_OPTIONS}
+            selected={filters.sourceTypes}
+            onChange={(selected) => {
+              const sourceTypes = selected.filter(isSourceType)
               setFilters((current) => ({
                 ...current,
-                sourceType: event.target.value as ComplaintRegistryFilters['sourceType'],
-                networkId: event.target.value === 'client' ? '' : current.networkId,
+                sourceTypes,
+                networkIds:
+                  sourceTypes.length === 1 && sourceTypes[0] === 'client'
+                    ? []
+                    : current.networkIds,
               }))
-            }
-          >
-            <option value="">Усі джерела</option>
-            <option value="network">Тільки мережі</option>
-            <option value="client">Тільки клієнти</option>
-          </Select>
-          <Select
-            value={filters.networkId}
-            onChange={(event) => setFilters((current) => ({ ...current, networkId: event.target.value }))}
-            disabled={filters.sourceType === 'client'}
-          >
-            <option value="">Усі мережі</option>
-            {data.networks.map((network) => (
-              <option key={network.id} value={network.id}>{network.name}</option>
-            ))}
-          </Select>
+            }}
+            placeholder="Усі джерела"
+            searchPlaceholder="Пошук джерела..."
+            maxLabels={1}
+          />
+          <MultiSelect
+            options={data.networks.map((network) => ({ value: network.id, label: network.name }))}
+            selected={filters.networkIds}
+            onChange={(networkIds) => setFilters((current) => ({ ...current, networkIds }))}
+            placeholder="Усі мережі"
+            searchPlaceholder="Пошук мережі..."
+            disabled={networkDisabled}
+            maxLabels={1}
+          />
           <div className="sm:col-span-2">
-            <Select
-              value={filters.managerId}
-              onChange={(event) => setFilters((current) => ({ ...current, managerId: event.target.value }))}
-            >
-              <option value="">Усі менеджери</option>
-              {data.users.map((user) => (
-                <option key={user.id} value={user.id}>{user.full_name}</option>
-              ))}
-            </Select>
+            <MultiSelect
+              options={data.users.map((user) => ({ value: user.id, label: user.full_name }))}
+              selected={filters.managerIds}
+              onChange={(managerIds) => setFilters((current) => ({ ...current, managerIds }))}
+              placeholder="Усі менеджери"
+              searchPlaceholder="Пошук менеджера..."
+              maxLabels={2}
+            />
           </div>
           <DateFilter
             label="Дата від"
@@ -134,4 +140,8 @@ function DateFilter({
       />
     </div>
   )
+}
+
+function isSourceType(value: string): value is 'network' | 'client' {
+  return value === 'network' || value === 'client'
 }

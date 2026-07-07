@@ -11,10 +11,11 @@ export function MultiSelect({
   options,
   selected,
   onChange,
-  placeholder = 'Оберіть…',
+  placeholder = 'Оберіть...',
   className,
-  searchPlaceholder = 'Пошук…',
+  searchPlaceholder = 'Пошук...',
   maxLabels = 2,
+  disabled = false,
 }: {
   options: MultiOption[]
   selected: string[]
@@ -23,6 +24,7 @@ export function MultiSelect({
   className?: string
   searchPlaceholder?: string
   maxLabels?: number
+  disabled?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -36,6 +38,10 @@ export function MultiSelect({
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
   }, [open])
+
+  useEffect(() => {
+    if (disabled) setOpen(false)
+  }, [disabled])
 
   const filtered = options.filter((o) =>
     !query.trim() ? true : o.label.toLowerCase().includes(query.trim().toLowerCase()),
@@ -57,32 +63,34 @@ export function MultiSelect({
     <div ref={root} className={cn('relative', className)}>
       <button
         type="button"
+        disabled={disabled}
         onClick={() => setOpen((v) => !v)}
         className={cn(
           'flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-border bg-surface px-3 text-sm transition-colors',
           'hover:border-foreground/30 focus:outline-none focus:ring-2 focus:ring-foreground/10',
+          disabled && 'cursor-not-allowed opacity-60 hover:border-border',
         )}
       >
-        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+        <span className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
           {shown.length === 0 && (
-            <span className="text-muted-foreground">{placeholder}</span>
+            <span className="truncate text-muted-foreground">{placeholder}</span>
           )}
           {shown.map((l) => (
             <span
               key={l}
-              className="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-xs"
+              className="inline-flex min-w-0 max-w-[12rem] items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-xs"
             >
-              {l}
+              <span className="truncate">{l}</span>
             </span>
           ))}
           {extra > 0 && (
-            <span className="inline-flex items-center rounded-full bg-accent px-2 py-0.5 text-xs text-muted-foreground">
+            <span className="inline-flex shrink-0 items-center rounded-full bg-accent px-2 py-0.5 text-xs text-muted-foreground">
               +{extra}
             </span>
           )}
         </span>
-        <div className="flex items-center gap-1">
-          {selected.length > 0 && (
+        <div className="flex shrink-0 items-center gap-1">
+          {selected.length > 0 && !disabled && (
             <span
               role="button"
               tabIndex={0}
@@ -100,7 +108,7 @@ export function MultiSelect({
         </div>
       </button>
 
-      {open && (
+      {open && !disabled && (
         <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-xl border border-border bg-surface shadow-card-lg">
           <div className="border-b border-border p-2">
             <input

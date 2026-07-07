@@ -10,26 +10,26 @@ import type {
 } from '@/lib/types'
 
 export interface ComplaintRegistryFilters {
-  statusId: string
-  severityId: string
-  groupId: string
-  brandId: string
-  networkId: string
-  sourceType: '' | 'network' | 'client'
-  managerId: string
+  statusIds: string[]
+  severityIds: string[]
+  groupIds: string[]
+  brandIds: string[]
+  networkIds: string[]
+  sourceTypes: Array<'network' | 'client'>
+  managerIds: string[]
   from: string
   to: string
   search: string
 }
 
 export const EMPTY_REGISTRY_FILTERS: ComplaintRegistryFilters = {
-  statusId: '',
-  severityId: '',
-  groupId: '',
-  brandId: '',
-  networkId: '',
-  sourceType: '',
-  managerId: '',
+  statusIds: [],
+  severityIds: [],
+  groupIds: [],
+  brandIds: [],
+  networkIds: [],
+  sourceTypes: [],
+  managerIds: [],
   from: '',
   to: '',
   search: '',

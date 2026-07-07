@@ -75,7 +75,7 @@ export function ComplaintsPage() {
     const start = (page - 1) * PAGE_SIZE
     return filtered.slice(start, start + PAGE_SIZE)
   }, [filtered, page])
-  const activeFilterCount = Object.values(filters).filter(Boolean).length
+  const activeFilterCount = countActiveRegistryFilters(filters)
 
   useEffect(() => {
     setPage(1)
@@ -287,6 +287,21 @@ async function loadComplaintRegistryData(): Promise<ComplaintRegistryData> {
   }
 }
 
+function countActiveRegistryFilters(filters: ComplaintRegistryFilters) {
+  return (
+    filters.statusIds.length +
+    filters.severityIds.length +
+    filters.groupIds.length +
+    filters.brandIds.length +
+    filters.sourceTypes.length +
+    filters.networkIds.length +
+    filters.managerIds.length +
+    (filters.from ? 1 : 0) +
+    (filters.to ? 1 : 0) +
+    (filters.search.trim() ? 1 : 0)
+  )
+}
+
 function filterRegistryComplaints(
   data: ComplaintRegistryData | undefined,
   filters: ComplaintRegistryFilters,
@@ -295,13 +310,13 @@ function filterRegistryComplaints(
   const search = filters.search.trim().toLowerCase()
   return [...data.complaints]
     .filter((complaint) => {
-      if (filters.statusId && complaint.status_id !== filters.statusId) return false
-      if (filters.severityId && complaint.severity_id !== filters.severityId) return false
-      if (filters.groupId && complaint.complaint_group_id !== filters.groupId) return false
-      if (filters.brandId && complaint.brand_id !== filters.brandId) return false
-      if (filters.sourceType && complaint.source_type !== filters.sourceType) return false
-      if (filters.networkId && complaint.retail_network_id !== filters.networkId) return false
-      if (filters.managerId && complaint.manager_id !== filters.managerId) return false
+      if (filters.statusIds.length && !filters.statusIds.includes(complaint.status_id ?? '')) return false
+      if (filters.severityIds.length && !filters.severityIds.includes(complaint.severity_id ?? '')) return false
+      if (filters.groupIds.length && !filters.groupIds.includes(complaint.complaint_group_id ?? '')) return false
+      if (filters.brandIds.length && !filters.brandIds.includes(complaint.brand_id ?? '')) return false
+      if (filters.sourceTypes.length && !filters.sourceTypes.includes(complaint.source_type)) return false
+      if (filters.networkIds.length && !filters.networkIds.includes(complaint.retail_network_id ?? '')) return false
+      if (filters.managerIds.length && !filters.managerIds.includes(complaint.manager_id)) return false
       if (filters.from && complaint.created_at < filters.from) return false
       if (filters.to && complaint.created_at > `${filters.to}T23:59:59`) return false
       if (search) {
