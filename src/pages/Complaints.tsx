@@ -17,6 +17,7 @@ import {
 import {
   DEFAULT_REGISTRY_FIELDS,
   EMPTY_REGISTRY_FILTERS,
+  SYSTEM_REGISTRY_FIELDS,
   type ComplaintRegistryData,
   type ComplaintRegistryFilters,
   type RegistryField,
@@ -351,15 +352,29 @@ function resolveRegistryFields(data: ComplaintRegistryData | undefined): Registr
   if (!data) return DEFAULT_REGISTRY_FIELDS
   const complaintEntity = data.entities.find((entity) => entity.entity_key === 'complaints')
   if (!complaintEntity) return DEFAULT_REGISTRY_FIELDS
-  const fields = data.fields
-    .filter(
-      (field) =>
-        field.entity_id === complaintEntity.id &&
-        field.is_active &&
-        field.is_visible &&
-        field.show_in_registry &&
-        !field.deleted_at,
-    )
+  const activeFields = data.fields.filter(
+    (field) =>
+      field.entity_id === complaintEntity.id &&
+      field.is_active &&
+      field.is_visible &&
+      !field.deleted_at,
+  )
+  const visibleFields = activeFields
+    .filter((field) => field.show_in_registry)
     .sort((a, b) => a.sort_order - b.sort_order)
-  return fields.length ? fields : DEFAULT_REGISTRY_FIELDS
+  const fields = visibleFields.length ? visibleFields : DEFAULT_REGISTRY_FIELDS
+  return withMissingSystemRegistryFields(fields, activeFields)
+}
+
+function withMissingSystemRegistryFields(
+  fields: RegistryField[],
+  allFields: RegistryField[] = fields,
+): RegistryField[] {
+  const next = [...fields]
+  for (const systemField of SYSTEM_REGISTRY_FIELDS) {
+    const existsInDatabase = allFields.some((field) => field.field_key === systemField.field_key)
+    const existsInRegistry = next.some((field) => field.field_key === systemField.field_key)
+    if (!existsInDatabase && !existsInRegistry) next.push(systemField)
+  }
+  return next.sort((a, b) => a.sort_order - b.sort_order)
 }

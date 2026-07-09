@@ -86,6 +86,7 @@ from e, (values
   ('problem_description', 'Суть претензії',     'textarea',  true,  true,  true,  true,  90),
   ('resolution_response', 'Рішення / Відповідь','textarea',  false, false, true,  false, 95),
   ('severity_id',         'Критичність',        'reference', true,  true,  true,  true,  110),
-  ('status_id',           'Статус',             'reference', true,  true,  true,  true,  120)
+  ('status_id',           'Статус',             'reference', true,  true,  true,  true,  120),
+  ('open_action',         'Відкрити',           'text',      false, false, false, true,  130)
 ) as x(field_key, label, field_type, is_required, show_in_create, show_in_details, show_in_registry, sort_order)
 on conflict (entity_id, field_key) do nothing;

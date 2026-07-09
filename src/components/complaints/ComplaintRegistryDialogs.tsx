@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { Button, Select, Toggle } from '@/components/ui/primitives'
 import { Dialog } from '@/components/ui/dialog'
-import { update } from '@/lib/db'
+import { insert, update } from '@/lib/db'
 import { updateComplaint } from '@/lib/complaints'
 import { useToast } from '@/components/ui/toast'
 import { padComplaintNumber } from '@/lib/utils'
+import { SYSTEM_REGISTRY_FIELDS } from './registry-types'
 import type { Complaint, FieldDefinition } from '@/lib/types'
 
 export function ComplaintStatusDialog({
@@ -129,15 +130,29 @@ export function ComplaintColumnsDialog({
   const complaintEntity = entities.find((entity) => entity.entity_key === 'complaints')
   const initial = useMemo<RegistryColumn[]>(() => {
     if (!complaintEntity) return []
-    return fields
+    const persisted = fields
       .filter((field) => field.entity_id === complaintEntity.id && field.is_active && !field.deleted_at)
       .sort((a, b) => a.sort_order - b.sort_order)
       .map((field) => ({
         id: field.id,
         label: field.label,
         field_key: field.field_key,
+        field_type: field.field_type,
         show_in_registry: field.show_in_registry,
+        sort_order: field.sort_order,
       }))
+    const missingSystemColumns = SYSTEM_REGISTRY_FIELDS
+      .filter((field) => !persisted.some((item) => item.field_key === field.field_key))
+      .map((field) => ({
+        id: `system:${field.field_key}`,
+        label: field.label,
+        field_key: field.field_key,
+        field_type: field.field_type,
+        show_in_registry: true,
+        sort_order: field.sort_order,
+        isSynthetic: true,
+      }))
+    return [...persisted, ...missingSystemColumns].sort((a, b) => a.sort_order - b.sort_order)
   }, [complaintEntity, fields])
   const [items, setItems] = useState(initial)
   const [saving, setSaving] = useState(false)
@@ -157,6 +172,7 @@ export function ComplaintColumnsDialog({
   }
 
   const save = async () => {
+    if (!complaintEntity) return
     setSaving(true)
     try {
       const now = new Date().toISOString()
@@ -165,6 +181,22 @@ export function ComplaintColumnsDialog({
         items.map((item, index) => {
           const before = initialMap.get(item.id)
           const sortOrder = (index + 1) * 10
+          if (item.isSynthetic) {
+            return insert('field_definitions', {
+              entity_id: complaintEntity.id,
+              field_key: item.field_key,
+              label: item.label,
+              field_type: item.field_type,
+              is_system: true,
+              is_required: false,
+              is_active: true,
+              is_visible: true,
+              show_in_create: false,
+              show_in_details: false,
+              show_in_registry: item.show_in_registry,
+              sort_order: sortOrder,
+            })
+          }
           const orderChanged = !before || orderOf(before, initial) !== sortOrder
           const visibilityChanged = !before || before.show_in_registry !== item.show_in_registry
           if (!orderChanged && !visibilityChanged) return null
@@ -277,7 +309,10 @@ interface RegistryColumn {
   id: string
   label: string
   field_key: string
+  field_type: FieldDefinition['field_type']
   show_in_registry: boolean
+  sort_order: number
+  isSynthetic?: boolean
 }
 
 function orderOf(item: RegistryColumn, initial: RegistryColumn[]) {

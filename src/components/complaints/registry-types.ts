@@ -54,6 +54,17 @@ export type RegistryField = Pick<
   'field_key' | 'label' | 'field_type' | 'sort_order'
 >
 
+export const OPEN_ACTION_FIELD_KEY = 'open_action'
+
+export const OPEN_ACTION_REGISTRY_FIELD: RegistryField = {
+  field_key: OPEN_ACTION_FIELD_KEY,
+  label: 'Відкрити',
+  field_type: 'text',
+  sort_order: 130,
+}
+
+export const SYSTEM_REGISTRY_FIELDS: RegistryField[] = [OPEN_ACTION_REGISTRY_FIELD]
+
 export const DEFAULT_REGISTRY_FIELDS: RegistryField[] = [
   { field_key: 'number', label: '№', field_type: 'text', sort_order: 10 },
   { field_key: 'created_at', label: 'Дата', field_type: 'date', sort_order: 20 },
@@ -73,4 +84,5 @@ export const DEFAULT_REGISTRY_FIELDS: RegistryField[] = [
   },
   { field_key: 'severity_id', label: 'Критичність', field_type: 'reference', sort_order: 110 },
   { field_key: 'status_id', label: 'Статус', field_type: 'reference', sort_order: 120 },
+  OPEN_ACTION_REGISTRY_FIELD,
 ]

@@ -5,7 +5,7 @@ import { BrandBadge, SeverityBadge, StatusBadge } from '@/components/Badges'
 import { useToast } from '@/components/ui/toast'
 import { formatDate, formatPhone, padComplaintNumber } from '@/lib/utils'
 import type { Complaint, FieldDefinition } from '@/lib/types'
-import type { ComplaintRegistryData, RegistryField } from './registry-types'
+import { OPEN_ACTION_FIELD_KEY, type ComplaintRegistryData, type RegistryField } from './registry-types'
 
 export function ComplaintRegistryList({
   complaints,
@@ -26,21 +26,23 @@ export function ComplaintRegistryList({
   onStatusChange: (complaint: Complaint) => void
   onDelete: (complaint: Complaint) => void
 }) {
+  const hasOpenAction = fields.some((field) => field.field_key === OPEN_ACTION_FIELD_KEY)
+
   return (
     <>
       <div className="hidden md:block">
         <Card padding={false}>
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
+            <table className="w-full table-fixed text-sm">
               <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
                   {fields.map((field) => (
-                    <th key={field.field_key} className="px-3 py-2">
+                    <th key={field.field_key} className={registryHeaderClass(field.field_key)}>
                       {registryLabel(field)}
                     </th>
                   ))}
-                  <th className="px-3 py-2 text-center">Файли</th>
-                  <th className="px-3 py-2 text-right">Дії</th>
+                  <th className="w-14 px-2 py-2 text-center">Файли</th>
+                  <th className="w-20 px-2 py-2 text-right">Дії</th>
                 </tr>
               </thead>
               <tbody>
@@ -64,10 +66,10 @@ export function ComplaintRegistryList({
                         )}
                       </td>
                     ))}
-                    <td className="px-3 py-2 text-center">
+                    <td className="px-2 py-2 text-center">
                       <AttachmentCount complaintId={complaint.id} counts={countByComplaint} />
                     </td>
-                    <td className="px-3 py-2 text-right">
+                    <td className="px-2 py-2 text-right">
                       <RegistryActions
                         complaint={complaint}
                         isAdmin={isAdmin}
@@ -105,13 +107,8 @@ export function ComplaintRegistryList({
               <div><AttachmentCount complaintId={complaint.id} counts={countByComplaint} /></div>
             </div>
             <div className="flex items-center justify-between gap-2 pt-2">
-              <Link
-                to={`/complaints/${complaint.id}`}
-                className="btn btn-liquid-glass btn-sm"
-              >
-                <span className="relative z-10">Відкрити</span>
-              </Link>
-              <div className="flex items-center gap-1">
+              {!hasOpenAction && <OpenComplaintButton complaint={complaint} />}
+              <div className="ml-auto flex items-center gap-1">
                 <ViewCount complaintId={complaint.id} counts={viewsByComplaint} />
                 {isAdmin && <DeleteButton onClick={() => onDelete(complaint)} />}
               </div>
@@ -181,15 +178,20 @@ function RegistryActions({
 }) {
   return (
     <div className="flex items-center justify-end gap-1">
-      <Link
-        to={`/complaints/${complaint.id}`}
-        className="btn btn-liquid-glass btn-sm"
-      >
-        <span className="relative z-10">Відкрити</span>
-      </Link>
       <ViewCount complaintId={complaint.id} counts={viewsByComplaint} />
       {isAdmin && <DeleteButton onClick={() => onDelete(complaint)} />}
     </div>
+  )
+}
+
+function OpenComplaintButton({ complaint }: { complaint: Complaint }) {
+  return (
+    <Link
+      to={`/complaints/${complaint.id}`}
+      className="btn btn-liquid-glass btn-sm whitespace-nowrap"
+    >
+      <span className="relative z-10">Відкрити</span>
+    </Link>
   )
 }
 
@@ -237,28 +239,47 @@ function registryLabel(field: RegistryField) {
     complaint_group_id: 'Група',
     problem_description: 'Опис',
     resolution_response: 'Рішення / Відповідь',
+    [OPEN_ACTION_FIELD_KEY]: 'Відкрити',
   }
   if (field.field_key === 'source_type' && field.label === 'Тип джерела') return 'Джерело'
   return labels[field.field_key] ?? field.label
 }
 
+function registryHeaderClass(fieldKey: string) {
+  const base = 'px-2 py-2'
+  if (fieldKey === OPEN_ACTION_FIELD_KEY) return `${base} w-24 text-right`
+  if (fieldKey === 'number') return `${base} w-16`
+  if (['created_at', 'source_type', 'complaint_group_id'].includes(fieldKey)) return `${base} w-24`
+  if (['product_barcode', 'batch_number'].includes(fieldKey)) return `${base} w-28`
+  if (fieldKey === 'client_phone') return `${base} w-32`
+  if (fieldKey === 'brand_id') return `${base} w-24`
+  if (fieldKey === 'product_name') return `${base} w-40`
+  if (fieldKey === 'problem_description') return `${base} w-48`
+  if (fieldKey === 'resolution_response') return `${base} w-56`
+  if (['severity_id', 'status_id'].includes(fieldKey)) return `${base} w-32`
+  return `${base} w-32`
+}
+
 function registryCellClass(fieldKey: string) {
-  const base = 'px-3 py-2'
-  if (['number', 'product_barcode', 'batch_number'].includes(fieldKey)) return `${base} font-mono text-xs`
-  if (['created_at', 'source_type', 'client_phone', 'complaint_group_id'].includes(fieldKey)) {
-    return `${base} whitespace-nowrap`
+  const base = 'px-2 py-2'
+  if (fieldKey === OPEN_ACTION_FIELD_KEY) return `${base} whitespace-nowrap text-right`
+  if (['number', 'product_barcode', 'batch_number'].includes(fieldKey)) return `${base} truncate font-mono text-xs`
+  if (fieldKey === 'created_at') return `${base} truncate whitespace-nowrap text-xs`
+  if (['source_type', 'client_phone', 'complaint_group_id'].includes(fieldKey)) {
+    return `${base} truncate whitespace-nowrap`
   }
-  if (fieldKey === 'brand_id') return `${base} whitespace-nowrap text-xs`
-  if (fieldKey === 'problem_description') return `${base} max-w-[280px] truncate`
-  if (fieldKey === 'resolution_response') return `${base} max-w-[280px]`
-  if (fieldKey === 'product_name') return `${base} min-w-[180px]`
-  return base
+  if (fieldKey === 'brand_id') return `${base} truncate whitespace-nowrap text-xs`
+  if (fieldKey === 'problem_description') return `${base} truncate text-xs`
+  if (fieldKey === 'resolution_response') return `${base} text-xs`
+  if (fieldKey === 'product_name') return `${base} truncate text-xs`
+  return `${base} truncate`
 }
 
 function registryMobileValueClass(fieldKey: string) {
   if (['number', 'product_barcode', 'batch_number', 'client_phone'].includes(fieldKey)) {
     return 'font-mono'
   }
+  if (fieldKey === OPEN_ACTION_FIELD_KEY) return 'text-right'
   if (fieldKey === 'problem_description' || fieldKey === 'resolution_response') return 'line-clamp-2'
   return undefined
 }
@@ -285,6 +306,7 @@ function renderRegistryValue(
     return id ? found?.name ?? found?.full_name ?? '—' : '—'
   }
   switch (field.field_key) {
+    case OPEN_ACTION_FIELD_KEY: return <OpenComplaintButton complaint={complaint} />
     case 'number': return padComplaintNumber(complaint.number)
     case 'created_at': return formatDate(complaint.created_at)
     case 'created_by': return byId(data.users, complaint.created_by)
