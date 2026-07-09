@@ -4,6 +4,8 @@ import {
   AlertCircle,
   BarChart3,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Database,
   ListChecks,
   LogOut,
@@ -66,47 +68,78 @@ const NAV: NavEntry[] = [
 export function Layout({ children }: { children: ReactNode }) {
   const { session, signOut, isAdmin } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [desktopCollapsed, setDesktopCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.localStorage.getItem('complaint-sidebar-collapsed') === '1'
+  })
   const nav = useNavigate()
+
+  useEffect(() => {
+    window.localStorage.setItem('complaint-sidebar-collapsed', desktopCollapsed ? '1' : '0')
+  }, [desktopCollapsed])
 
   return (
     <div className="flex min-h-screen bg-background">
       {/* Desktop sidebar */}
-      <aside className="hidden w-60 shrink-0 flex-col bg-sidebar md:flex">
-        <div className="flex h-16 items-center gap-2.5 px-6">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground">
+      <aside
+        className={cn(
+          'relative hidden shrink-0 flex-col bg-sidebar transition-[width] duration-200 md:flex',
+          desktopCollapsed ? 'w-20' : 'w-60',
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => setDesktopCollapsed((value) => !value)}
+          className="absolute -right-3 top-5 z-10 inline-flex h-6 w-6 items-center justify-center rounded-full border border-border bg-surface text-muted-foreground shadow-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
+          aria-label={desktopCollapsed ? 'Розгорнути меню' : 'Згорнути меню'}
+          title={desktopCollapsed ? 'Розгорнути меню' : 'Згорнути меню'}
+        >
+          {desktopCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
+        </button>
+
+        <div className={cn('flex h-16 items-center px-4', desktopCollapsed ? 'justify-center' : 'gap-2.5 px-6')}>
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-foreground">
             <AlertCircle className="h-4 w-4 text-background" />
           </div>
-          <span className="text-base font-bold tracking-tight text-foreground">Oops!</span>
+          {!desktopCollapsed && <span className="text-base font-bold tracking-tight text-foreground">Oops!</span>}
         </div>
 
-        <nav className="flex-1 space-y-1 px-4 pt-2">
+        <nav className={cn('flex-1 space-y-1 pt-2', desktopCollapsed ? 'px-3' : 'px-4')}>
           {NAV.map((entry) =>
             isGroup(entry) ? (
-              <NavGroupItem key={entry.basePath} group={entry} isAdmin={isAdmin} />
+              <NavGroupItem
+                key={entry.basePath}
+                group={entry}
+                isAdmin={isAdmin}
+                collapsed={desktopCollapsed}
+              />
             ) : (
-              <NavLeafLink key={entry.to} item={entry} />
+              <NavLeafLink key={entry.to} item={entry} collapsed={desktopCollapsed} />
             ),
           )}
         </nav>
 
         {session && (
-          <div className="mx-4 mb-4 mt-1">
-            <div className="h-px bg-border mb-3" />
-            <div className="flex items-center gap-3 rounded-xl px-2 py-2">
+          <div className={cn('mb-4 mt-1', desktopCollapsed ? 'mx-3' : 'mx-4')}>
+            <div className="mb-3 h-px bg-border" />
+            <div className={cn('flex rounded-xl px-2 py-2', desktopCollapsed ? 'flex-col items-center gap-2 px-0' : 'items-center gap-3')}>
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-foreground text-xs font-bold text-background">
                 {session.full_name.charAt(0).toUpperCase()}
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-semibold text-foreground">{session.full_name}</p>
-                <p className="truncate text-[10px] text-muted-foreground">{ROLE_LABELS[session.role]}</p>
-              </div>
+              {!desktopCollapsed && (
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-semibold text-foreground">{session.full_name}</p>
+                  <p className="truncate text-[10px] text-muted-foreground">{ROLE_LABELS[session.role]}</p>
+                </div>
+              )}
               <button
                 onClick={async () => {
                   await signOut()
                   nav('/login', { replace: true })
                 }}
-                className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 aria-label="Вийти"
+                title="Вийти"
               >
                 <LogOut className="h-3.5 w-3.5" />
               </button>
@@ -114,7 +147,6 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         )}
       </aside>
-
       {/* Mobile drawer */}
       {mobileOpen && (
         <div className="fixed inset-0 z-40 md:hidden" onClick={() => setMobileOpen(false)}>
@@ -203,15 +235,25 @@ export function Layout({ children }: { children: ReactNode }) {
   )
 }
 
-function NavLeafLink({ item, onClick }: { item: NavLeaf; onClick?: () => void }) {
+function NavLeafLink({
+  item,
+  onClick,
+  collapsed = false,
+}: {
+  item: NavLeaf
+  onClick?: () => void
+  collapsed?: boolean
+}) {
   return (
     <NavLink
       to={item.to}
       onClick={onClick}
       end
+      title={collapsed ? item.label : undefined}
       className={({ isActive }) =>
         cn(
-          'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-150',
+          'group flex items-center rounded-xl text-sm transition-all duration-150',
+          collapsed ? 'mx-auto h-10 w-10 justify-center px-0 py-0' : 'gap-3 px-3 py-2.5',
           isActive
             ? 'bg-foreground text-background font-semibold'
             : 'font-normal text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -226,7 +268,7 @@ function NavLeafLink({ item, onClick }: { item: NavLeaf; onClick?: () => void })
               isActive ? 'text-background' : 'text-muted-foreground group-hover:text-foreground',
             )}
           />
-          {item.label}
+          {collapsed ? <span className="sr-only">{item.label}</span> : item.label}
         </>
       )}
     </NavLink>
@@ -237,10 +279,12 @@ function NavGroupItem({
   group,
   isAdmin,
   onNavigate,
+  collapsed = false,
 }: {
   group: NavGroup
   isAdmin: boolean
   onNavigate?: () => void
+  collapsed?: boolean
 }) {
   const loc = useLocation()
   const isInside =
@@ -252,6 +296,30 @@ function NavGroupItem({
   }, [isInside])
 
   const children = group.children.filter((c) => !c.adminOnly || isAdmin)
+
+  if (collapsed) {
+    return (
+      <NavLink
+        to={group.basePath}
+        onClick={onNavigate}
+        title={group.label}
+        className={cn(
+          'group mx-auto flex h-10 w-10 items-center justify-center rounded-xl text-sm transition-all duration-150',
+          isInside
+            ? 'bg-foreground text-background font-semibold'
+            : 'font-normal text-muted-foreground hover:bg-accent hover:text-foreground',
+        )}
+      >
+        <group.icon
+          className={cn(
+            'h-4 w-4 shrink-0 transition-colors',
+            isInside ? 'text-background' : 'text-muted-foreground group-hover:text-foreground',
+          )}
+        />
+        <span className="sr-only">{group.label}</span>
+      </NavLink>
+    )
+  }
 
   return (
     <div>

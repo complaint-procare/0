@@ -1,6 +1,7 @@
 import {
   forwardRef,
   type ButtonHTMLAttributes,
+  type CSSProperties,
   type InputHTMLAttributes,
   type ReactNode,
   type SelectHTMLAttributes,
@@ -106,12 +107,18 @@ export function Card({
   children,
   className,
   padding = true,
+  style,
 }: {
   children: ReactNode
   className?: string
   padding?: boolean
+  style?: CSSProperties
 }) {
-  return <div className={cn('card', padding && 'p-4', className)}>{children}</div>
+  return (
+    <div className={cn('card', padding && 'p-4', className)} style={style}>
+      {children}
+    </div>
+  )
 }
 
 export function Badge({

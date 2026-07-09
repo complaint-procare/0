@@ -5,16 +5,16 @@
 -- ============================================================
 -- Complaint statuses
 -- ============================================================
-insert into public.complaint_statuses (name, sort_order, color, is_closed, is_active) values
-  ('Новий',                         10, '#1FC791', false, true),
-  ('В роботі',                      20, '#D97706', false, true),
-  ('В роботі виробництво',          30, '#D97706', false, true),
-  ('В роботі ВКЯ',                  40, '#D97706', false, true),
-  ('В роботі продакт-менеджер',     50, '#D97706', false, true),
-  ('Очікує відповідь клієнта',      60, '#7C3AED', false, true),
-  ('Очікує ВКЯ',                    70, '#7C3AED', false, true),
-  ('Закрито',                       80, '#000000', true,  true),
-  ('Відхилено',                     90, '#DC2626', true,  true)
+insert into public.complaint_statuses (name, sort_order, color, is_closed, is_active, registry_tint_percent, registry_shadow_enabled) values
+  ('Новий',                         10, '#1FC791', false, true,  0, false),
+  ('В роботі',                      20, '#D97706', false, true,  0, false),
+  ('В роботі виробництво',          30, '#D97706', false, true,  0, false),
+  ('В роботі ВКЯ',                  40, '#D97706', false, true,  0, false),
+  ('В роботі продакт-менеджер',     50, '#D97706', false, true,  0, false),
+  ('Очікує відповідь клієнта',      60, '#7C3AED', false, true,  0, false),
+  ('Очікує ВКЯ',                    70, '#7C3AED', false, true,  0, false),
+  ('Закрито',                       80, '#000000', true,  true, 10, false),
+  ('Відхилено',                     90, '#DC2626', true,  true,  0, false)
 on conflict (name) do nothing;
 
 -- ============================================================

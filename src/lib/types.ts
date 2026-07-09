@@ -60,6 +60,8 @@ export interface ComplaintStatus {
   name: string
   sort_order: number
   color: string
+  registry_tint_percent: number
+  registry_shadow_enabled: boolean
   is_closed: boolean
   is_active: boolean
 }

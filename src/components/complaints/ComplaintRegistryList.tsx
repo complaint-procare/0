@@ -1,9 +1,10 @@
+import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Copy, Eye, Paperclip, Trash2 } from 'lucide-react'
 import { Button, Card } from '@/components/ui/primitives'
 import { BrandBadge, SeverityBadge, StatusBadge } from '@/components/Badges'
 import { useToast } from '@/components/ui/toast'
-import { formatDate, formatPhone, padComplaintNumber } from '@/lib/utils'
+import { cn, formatDate, formatPhone, padComplaintNumber } from '@/lib/utils'
 import type { Complaint, FieldDefinition } from '@/lib/types'
 import { OPEN_ACTION_FIELD_KEY, type ComplaintRegistryData, type RegistryField } from './registry-types'
 
@@ -46,11 +47,17 @@ export function ComplaintRegistryList({
                 </tr>
               </thead>
               <tbody>
-                {complaints.map((complaint) => (
-                  <tr
-                    key={complaint.id}
-                    className="border-b border-border last:border-0 hover:bg-muted/40"
-                  >
+                {complaints.map((complaint) => {
+                  const statusVisual = registryStatusVisual(complaint.status_id, data.statuses)
+                  return (
+                    <tr
+                      key={complaint.id}
+                      className={cn(
+                        'border-b border-border last:border-0 hover:bg-muted/40',
+                        statusVisual?.className,
+                      )}
+                      style={statusVisual?.style}
+                    >
                     {fields.map((field) => (
                       <td
                         key={field.field_key}
@@ -77,8 +84,9 @@ export function ComplaintRegistryList({
                         onDelete={onDelete}
                       />
                     </td>
-                  </tr>
-                ))}
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -86,8 +94,14 @@ export function ComplaintRegistryList({
       </div>
 
       <div className="grid gap-3 md:hidden">
-        {complaints.map((complaint) => (
-          <Card key={complaint.id} className="space-y-2">
+        {complaints.map((complaint) => {
+          const statusVisual = registryStatusVisual(complaint.status_id, data.statuses)
+          return (
+            <Card
+              key={complaint.id}
+              className={cn('space-y-2', statusVisual?.className)}
+              style={statusVisual?.style}
+            >
             <div className="grid grid-cols-2 gap-1 text-xs">
               {fields.map((field) => (
                 <div key={field.field_key} className="contents">
@@ -113,8 +127,9 @@ export function ComplaintRegistryList({
                 {isAdmin && <DeleteButton onClick={() => onDelete(complaint)} />}
               </div>
             </div>
-          </Card>
-        ))}
+            </Card>
+          )
+        })}
       </div>
     </>
   )
@@ -426,6 +441,60 @@ function AttachmentCount({
       <Paperclip className="h-3 w-3" /> {count}
     </span>
   )
+}
+
+type RegistryStatusVisual = {
+  className: string
+  style: CSSProperties & {
+    '--registry-tint-rgb': string
+    '--registry-tint-alpha': string
+    '--registry-status-shadow': string
+  }
+}
+
+function registryStatusVisual(
+  statusId: string | null,
+  statuses: ComplaintRegistryData['statuses'],
+): RegistryStatusVisual | undefined {
+  const status = statuses.find((item) => item.id === statusId)
+  if (!status) return undefined
+  const rgb = hexToRgb(status.color)
+  if (!rgb) return undefined
+  const tint = clampPercent(status.registry_tint_percent)
+  const shadow = !!status.registry_shadow_enabled
+  if (tint <= 0 && !shadow) return undefined
+
+  return {
+    className: 'registry-status-glass',
+    style: {
+      '--registry-tint-rgb': `${rgb.r} ${rgb.g} ${rgb.b}`,
+      '--registry-tint-alpha': String(tint / 100),
+      '--registry-status-shadow': shadow
+        ? `0 10px 26px rgb(${rgb.r} ${rgb.g} ${rgb.b} / 0.16), inset 0 0 0 1px rgb(${rgb.r} ${rgb.g} ${rgb.b} / 0.18)`
+        : '0 0 0 0 transparent',
+    },
+  }
+}
+
+function clampPercent(value: unknown) {
+  const numeric = Number(value ?? 0)
+  if (!Number.isFinite(numeric)) return 0
+  return Math.min(100, Math.max(0, Math.round(numeric)))
+}
+
+function hexToRgb(value?: string | null) {
+  const trimmed = value?.trim()
+  if (!trimmed) return null
+  const match = /^#?([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.exec(trimmed)
+  if (!match) return null
+  const raw = match[1]
+  const hex = raw.length === 3 ? raw.split('').map((char) => `${char}${char}`).join('') : raw
+  const num = Number.parseInt(hex, 16)
+  return {
+    r: (num >> 16) & 255,
+    g: (num >> 8) & 255,
+    b: num & 255,
+  }
 }
 
 function formatRegistryValue(value: unknown, type: FieldDefinition['field_type']) {

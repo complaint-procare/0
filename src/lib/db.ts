@@ -44,6 +44,9 @@ export type TableName = keyof Tables
 
 const SESSION_KEY = '__auth_session__'
 const DEFAULT_BRAND_COLOR = '#64748B'
+const DEFAULT_STATUS_COLOR = '#64748B'
+const DEFAULT_STATUS_REGISTRY_TINT_PERCENT = 0
+const DEFAULT_STATUS_REGISTRY_SHADOW_ENABLED = false
 
 function requireSupabase() {
   if (!supabase) {
@@ -87,6 +90,15 @@ export async function insert<T extends TableName>(
     if (retryError) throw retryError
     return normalizeRow(table, retryData)
   }
+  if (isMissingStatusRegistryStyleColumnError(table, error)) {
+    const { data: retryData, error: retryError } = await client
+      .from(table)
+      .insert(omitStatusRegistryStyle(row) as never)
+      .select('*')
+      .single()
+    if (retryError) throw retryError
+    return normalizeRow(table, retryData)
+  }
   throw error
 }
 
@@ -105,6 +117,18 @@ export async function update<T extends TableName>(
   if (!error) return data ? normalizeRow(table, data) : undefined
   if (isMissingBrandColorColumnError(table, error)) {
     const fallbackPatch = omitBrandColor(patch)
+    if (Object.keys(fallbackPatch).length === 0) return getById(table, id)
+    const { data: retryData, error: retryError } = await client
+      .from(table)
+      .update(fallbackPatch as never)
+      .eq('id', id)
+      .select('*')
+      .maybeSingle()
+    if (retryError) throw retryError
+    return retryData ? normalizeRow(table, retryData) : undefined
+  }
+  if (isMissingStatusRegistryStyleColumnError(table, error)) {
+    const fallbackPatch = omitStatusRegistryStyle(patch)
     if (Object.keys(fallbackPatch).length === 0) return getById(table, id)
     const { data: retryData, error: retryError } = await client
       .from(table)
@@ -161,6 +185,23 @@ function normalizeRow<T extends TableName>(table: T, row: unknown): Tables[T] {
   if (table === 'brands' && row && typeof row === 'object' && !('color' in row)) {
     return { ...(row as Record<string, unknown>), color: DEFAULT_BRAND_COLOR } as Tables[T]
   }
+  if (table === 'complaint_statuses' && row && typeof row === 'object') {
+    const status = row as Partial<ComplaintStatus>
+    const hasRegistryTint = 'registry_tint_percent' in status
+    return {
+      ...status,
+      color: status.color ?? DEFAULT_STATUS_COLOR,
+      registry_tint_percent: Number(
+        hasRegistryTint
+          ? status.registry_tint_percent
+          : status.name === 'Закрито'
+            ? 10
+            : DEFAULT_STATUS_REGISTRY_TINT_PERCENT,
+      ),
+      registry_shadow_enabled:
+        status.registry_shadow_enabled ?? DEFAULT_STATUS_REGISTRY_SHADOW_ENABLED,
+    } as Tables[T]
+  }
   return row as Tables[T]
 }
 
@@ -169,11 +210,31 @@ function omitBrandColor<T extends TableName>(row: Partial<Tables[T]>) {
   return rest
 }
 
+function omitStatusRegistryStyle<T extends TableName>(row: Partial<Tables[T]>) {
+  const {
+    registry_tint_percent: _registryTintPercent,
+    registry_shadow_enabled: _registryShadowEnabled,
+    ...rest
+  } = row as Partial<ComplaintStatus>
+  return rest
+}
+
 function isMissingBrandColorColumnError<T extends TableName>(table: T, error: { message?: string; code?: string }) {
   return (
     table === 'brands' &&
     error.code === 'PGRST204' &&
     /'color' column of 'brands'|Could not find the 'color' column/i.test(error.message ?? '')
+  )
+}
+
+function isMissingStatusRegistryStyleColumnError<T extends TableName>(
+  table: T,
+  error: { message?: string; code?: string },
+) {
+  return (
+    table === 'complaint_statuses' &&
+    error.code === 'PGRST204' &&
+    /registry_tint_percent|registry_shadow_enabled|Could not find .* column/i.test(error.message ?? '')
   )
 }
 

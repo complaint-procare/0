@@ -108,6 +108,21 @@ function ComplaintStatusesCrud({ nextSortOrder }: { nextSortOrder: number }) {
           sortValue: (r) => r.sort_order,
         },
         {
+          key: 'registry_tint_percent',
+          label: 'Фон, %',
+          className: 'w-24 font-mono text-xs',
+          render: (r) => `${clampPercent(r.registry_tint_percent)}%`,
+          searchValue: (r) => clampPercent(r.registry_tint_percent),
+          sortValue: (r) => clampPercent(r.registry_tint_percent),
+        },
+        {
+          key: 'registry_shadow_enabled',
+          label: 'Тінь',
+          render: (r) => (r.registry_shadow_enabled ? 'Так' : 'Ні'),
+          searchValue: (r) => (r.registry_shadow_enabled ? 'Так тінь' : 'Ні без тіні'),
+          sortValue: (r) => r.registry_shadow_enabled,
+        },
+        {
           key: 'is_closed',
           label: 'Закриває скаргу',
           render: (r) => (r.is_closed ? 'Так' : 'Ні'),
@@ -126,6 +141,8 @@ function ComplaintStatusesCrud({ nextSortOrder }: { nextSortOrder: number }) {
         name: '',
         color: DEFAULT_STATUS_COLOR,
         sort_order: nextSortOrder,
+        registry_tint_percent: 0,
+        registry_shadow_enabled: false,
         is_closed: false,
         is_active: true,
       })}
@@ -161,6 +178,39 @@ function ComplaintStatusesCrud({ nextSortOrder }: { nextSortOrder: number }) {
             />
           </Field>
 
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Фон картки, %" hint="0-100. Наприклад 10 = 10% кольору статусу.">
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                value={row.registry_tint_percent ?? 0}
+                onChange={(e) =>
+                  set((r) => ({
+                    ...r,
+                    registry_tint_percent: percentFromInput(e.target.value),
+                  }))
+                }
+              />
+            </Field>
+
+            <div className="rounded-lg border border-border bg-muted/30 p-3">
+              <label className="flex h-full items-center justify-between gap-3 text-sm">
+                <span>
+                  <span className="font-medium">Тінь картки</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Додає легку тінь у реєстрі кольором статусу.
+                  </span>
+                </span>
+                <Toggle
+                  checked={!!row.registry_shadow_enabled}
+                  onChange={(next) => set((r) => ({ ...r, registry_shadow_enabled: next }))}
+                  aria-label="Тінь картки статусу"
+                />
+              </label>
+            </div>
+          </div>
           <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-3">
             <label className="flex items-center justify-between gap-3 text-sm">
               <span>
@@ -425,10 +475,22 @@ function ColorPreview({ color }: { color?: string | null }) {
   )
 }
 
+function clampPercent(value: unknown) {
+  const numeric = Number(value ?? 0)
+  if (!Number.isFinite(numeric)) return 0
+  return Math.min(100, Math.max(0, Math.round(numeric)))
+}
+
+function percentFromInput(value: string) {
+  if (value.trim() === '') return 0
+  return clampPercent(value)
+}
 function validateStatusRow(row: Partial<ComplaintStatus>) {
   if (!row.name?.trim()) return 'Вкажіть назву статусу'
   if (!normalizeHexColor(row.color)) return 'Оберіть коректний HEX-колір'
   if (!Number.isFinite(Number(row.sort_order))) return 'Вкажіть коректний порядок'
+  const tint = Number(row.registry_tint_percent ?? 0)
+  if (!Number.isFinite(tint) || tint < 0 || tint > 100) return 'Вкажіть фон картки від 0 до 100'
   return null
 }
 
