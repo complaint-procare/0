@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Eye, Paperclip, Trash2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Copy, Eye, Paperclip, Trash2 } from 'lucide-react'
 import { Button, Card } from '@/components/ui/primitives'
 import { BrandBadge, SeverityBadge, StatusBadge } from '@/components/Badges'
+import { useToast } from '@/components/ui/toast'
 import { formatDate, formatPhone, padComplaintNumber } from '@/lib/utils'
 import type { Complaint, FieldDefinition } from '@/lib/types'
 import type { ComplaintRegistryData, RegistryField } from './registry-types'
@@ -248,9 +249,8 @@ function registryCellClass(fieldKey: string) {
     return `${base} whitespace-nowrap`
   }
   if (fieldKey === 'brand_id') return `${base} whitespace-nowrap text-xs`
-  if (fieldKey === 'problem_description' || fieldKey === 'resolution_response') {
-    return `${base} max-w-[280px] truncate`
-  }
+  if (fieldKey === 'problem_description') return `${base} max-w-[280px] truncate`
+  if (fieldKey === 'resolution_response') return `${base} max-w-[280px]`
   if (fieldKey === 'product_name') return `${base} min-w-[180px]`
   return base
 }
@@ -301,7 +301,8 @@ function renderRegistryValue(
     case 'batch_number': return complaint.batch_number || '—'
     case 'complaint_group_id': return byId(data.groups, complaint.complaint_group_id)
     case 'problem_description': return complaint.problem_description || '—'
-    case 'resolution_response': return complaint.resolution_response || '—'
+    case 'resolution_response':
+      return <ResolutionResponseValue value={complaint.resolution_response} complaintNumber={complaint.number} />
     case 'severity_id': return <SeverityBadge id={complaint.severity_id} levels={data.severities} />
     case 'status_id':
       return (
@@ -325,6 +326,62 @@ function renderRegistryValue(
     default:
       return formatRegistryValue(complaint.custom_fields?.[field.field_key], field.field_type)
   }
+}
+
+function ResolutionResponseValue({
+  value,
+  complaintNumber,
+}: {
+  value: string
+  complaintNumber: number
+}) {
+  const toast = useToast()
+  const text = value.trim()
+
+  if (!text) return <span className="text-muted-foreground">—</span>
+
+  const copy = async () => {
+    try {
+      await copyTextToClipboard(text)
+      toast.show('Рішення / відповідь скопійовано', 'success')
+    } catch (error) {
+      toast.show((error as Error).message || 'Не вдалося скопіювати текст', 'error')
+    }
+  }
+
+  return (
+    <span className="inline-flex max-w-full items-center gap-1.5 align-middle">
+      <span className="min-w-0 truncate">{text}</span>
+      <button
+        type="button"
+        onClick={copy}
+        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
+        aria-label={`Скопіювати рішення / відповідь скарги №${padComplaintNumber(complaintNumber)}`}
+        title="Скопіювати"
+      >
+        <Copy className="h-3.5 w-3.5" />
+      </button>
+    </span>
+  )
+}
+
+async function copyTextToClipboard(text: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text)
+    return
+  }
+
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'fixed'
+  textarea.style.left = '-9999px'
+  document.body.appendChild(textarea)
+  textarea.select()
+  const copied = document.execCommand('copy')
+  document.body.removeChild(textarea)
+
+  if (!copied) throw new Error('Не вдалося скопіювати текст')
 }
 
 function AttachmentCount({
