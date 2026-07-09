@@ -38,7 +38,7 @@ export function ComplaintRegistryList({
                 <tr>
                   {fields.map((field) => (
                     <th key={field.field_key} className={registryHeaderClass(field.field_key)}>
-                      {registryLabel(field)}
+                      {registryHeaderLabel(field)}
                     </th>
                   ))}
                   <th className="w-14 px-2 py-2 text-center">Файли</th>
@@ -228,6 +228,12 @@ function DeleteButton({ onClick }: { onClick: () => void }) {
       <Trash2 className="h-3.5 w-3.5" />
     </Button>
   )
+}
+
+function registryHeaderLabel(field: RegistryField) {
+  const label = registryLabel(field)
+  if (field.field_key === OPEN_ACTION_FIELD_KEY) return <span className="sr-only">{label}</span>
+  return label
 }
 
 function registryLabel(field: RegistryField) {
