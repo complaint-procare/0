@@ -2,10 +2,9 @@
 
 Локальна технічна пам'ятка для роботи над Complaint CRM.
 
-Актуально станом на **7 липня 2026 року**.
+Актуально станом на **10 липня 2026 року**.
 
-`AGENT.md` доданий у `.gitignore`. Він не є частиною публічного
-репозиторію і не повинен потрапляти в commit або push.
+`AGENT.md` відстежується в репозиторії як робоча технічна пам'ятка. Не додавати сюди секрети, токени, приватні ключі або інші значення з `.env.local`.
 
 ## 1. Коротко про продукт
 
@@ -58,6 +57,7 @@ Supabase Database Webhook
 - активні рівні критичності: `Інформаційна`, `Низька`, `Середня`, `Висока`; `Критична` об'єднана з `Висока` і не має повертатися без нової погодженої міграції;
 - `products.external_id` — бізнесовий ID із Excel/каталогу, не заміна технічного UUID `products.id`;
 - `brands.color` — HEX-колір бренду для `BrandBadge`; дефолт `#64748B`, справжнє збереження потребує міграції `20260626000002_add_brand_colors.sql`;
+- `complaint_statuses.registry_tint_percent` (0-100) і `registry_shadow_enabled` керують фоном/тінню рядків і mobile-карток реєстру; `Закрито` за seed/migration має `#000000` і `10%`;
 - `complaint_views` рахує унікальні перегляди за `complaint_id` + `user_id`; повторні відкриття тим самим користувачем не збільшують лічильник;
 - `.github/workflows/supabase-keepalive.yml` робить легкий щоденний REST-запит для Supabase Free і не змінює бізнес-дані;
 - `boxes` є довідником для сторінки `/boxes`; frontend спершу читає Supabase, а при недоступності або порожній таблиці використовує локальний generated JSON.
@@ -136,7 +136,7 @@ src/
 
   components/
     Layout.tsx
-      Desktop sidebar, mobile drawer, role-aware navigation.
+      Desktop sidebar з icon-only collapse, mobile drawer, role-aware navigation.
 
     SettingsLayout.tsx
       Заголовки сторінок /settings/*.
@@ -183,7 +183,7 @@ src/
         Відображення й форматування історії змін.
 
       ComplaintRegistryList.tsx
-        Desktop table, mobile cards і пагінація реєстру.
+        Desktop table, mobile cards, pagination, open action, resolution copy і status glass реєстру.
 
       ComplaintRegistryFilters.tsx
         Діалог фільтрів реєстру.
@@ -235,7 +235,7 @@ src/
 
     db.ts
       list/getById/insert/update/remove/getSetting/upsertSetting.
-      Для `brands.color` нормалізує відсутній color до `#64748B` і повторює insert/update без color, якщо Supabase schema cache ще старий.
+      Для `brands.color` нормалізує відсутній color до `#64748B` і повторює insert/update без color, якщо Supabase schema cache ще старий. Для `complaint_statuses` нормалізує відсутні registry style поля та повторює insert/update без них, якщо PostgREST schema cache ще не бачить нові колонки.
 
     seed.ts
       Перевірка Supabase configuration.
@@ -799,6 +799,8 @@ src/pages/admin/Statuses.tsx
 - name;
 - HEX color;
 - sort order;
+- registry tint percent (`registry_tint_percent`, 0-100);
+- registry shadow toggle (`registry_shadow_enabled`);
 - active;
 - closes complaint.
 
@@ -910,6 +912,9 @@ Haystack:
 ### Статуси та перегляди
 
 - статуси в реєстрі клікабельні та відкривають confirmation dialog;
+- status tint/shadow застосовується класом `.registry-status-glass` до всіх `td` desktop-рядка та до mobile `Card`;
+- `resolution_response` у реєстрі рендериться зі скороченим текстом і copy-кнопкою;
+- `open_action` є системною movable колонкою з кнопкою **«Відкрити»**, desktop header прихований через `sr-only`;
 - `ComplaintDetails` викликає `recordComplaintView(complaintId, session.user_id)`;
 - лічильник унікальних переглядів показується в реєстрі з іконкою ока;
 - після запису перегляду інвалідовується `complaints-page`.
@@ -1136,6 +1141,7 @@ Frontend не передає `number` при create.
 20260625000000_normalize_complaint_statuses.sql
 20260626000000_merge_critical_severity_into_high.sql
 20260706000000_add_boxes.sql
+20260709000001_add_status_registry_style.sql
 ```
 
 Для нової таблиці:
